@@ -1,0 +1,54 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MySql.Data" Version="9.1.0" />
+    <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
+    <PackageReference Include="MySql.EntityFrameworkCore" Version="8.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.8" >
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Dapper" Version="2.1.35" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageReference Include="log4net" Version="2.0.17" />
+    <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="8.0.8" />
+    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+    <PackageReference Include="Isopoh.Cryptography.Argon2" Version="2.0.0" />
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.oAuth" Version="2.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIDConnect" Version="8.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.8" />
+    <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\E_commerce.Core\E_commerce.Core.csproj" />
+    <ProjectReference Include="..\E_commerce.SQL\E_commerce.SQL.csproj" />
+    <ProjectReference Include="..\E_commerce.Application\E_commerce.Application.csproj" />
+    <ProjectReference Include="..\E_commerce.Logging\E_commerce.Logging.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    
+    <!-- Tắt thông báo cảnh báo theo mã hiệu Cảnh báo-->
+    <NoWarn>
+      AD0001;CS8073;NU1701;CS8603;CS8604;CS8601;CS0472;CS8618;CS8766;
+      CS8602;CS8625;CS8600;CS8714;CS8621;CS1998;CS0109;NETSDK1080
+    </NoWarn>
+    
+    <!-- Bật tính năng Tiered Compilation để giúp .NET tối ưu JIT theo thời gian -->
+    <TieredCompilation>true</TieredCompilation>
+  </PropertyGroup>
+
+</Project>

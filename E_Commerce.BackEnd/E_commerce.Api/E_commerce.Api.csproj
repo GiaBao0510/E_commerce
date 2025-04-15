@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Tắt thông báo cảnh báo theo mã hiệu Cảnh báo-->
+    <NoWarn>
+      AD0001;CS8073;NU1701;CS8603;CS8604;CS8601;CS0472;CS8618;CS8766;
+      CS8602;CS8625;CS8600;CS8714;CS8621;CS1998;CS0109;NETSDK1080
+    </NoWarn>
+
+    <!-- Tối ưu JIT compilation -->
+    <TieredCompilation>true</TieredCompilation>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.8" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning" Version="5.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning.ApiExplorer" Version="5.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.15" />
+  </ItemGroup> 
+
+  <ItemGroup>
+    <ProjectReference Include="..\E_commerce.Application\E_commerce.Application.csproj" />
+    <ProjectReference Include="..\E_commerce.Infrastructure\E_commerce.Infrastructure.csproj" />
+    <ProjectReference Include="..\E_commerce.Logging\E_commerce.Logging.csproj" />
+    <None Update="log4net.config">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

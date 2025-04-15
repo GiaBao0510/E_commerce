@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\E_commerce.Core\E_commerce.Core.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="8.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.8" />
+    <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+     <!-- Tắt thông báo cảnh báo theo mã hiệu Cảnh báo-->
+    <NoWarn>
+      AD0001;CS8073;NU1701;CS8603;CS8604;CS8601;CS0472;CS8618;CS8766;
+      CS8602;CS8625;CS8600;CS8714;CS8621;CS1998;CS0109;NETSDK1080
+    </NoWarn>
+  </PropertyGroup>
+
+</Project> 

@@ -1,0 +1,48 @@
+version: '3.4'
+
+services:
+  mongodb:
+    container_name: mongodb
+    image: mongo
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/var/lib/mongo/data
+    networks:
+      - backend_sell_tickets
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoadmin
+      MONGO_INITDB_ROOT_PASSWORD: mongobd_GiaBao2002
+  mysql:
+    container_name: my_mysql
+    image: mysql:latest
+    ports:
+    - "0.0.0.0:3306:3306"
+    volumes:
+      - my-data:/var/lib/mysql
+    networks:
+      - backend_sell_tickets
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: MySQL_GiaBao2002
+  redis:
+    container_name: myredis
+    image: redis:latest
+    ports:
+      - "0.0.0.0:6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - backend_sell_tickets
+    restart: always
+    command: ["redis-server", "--requirepass", "Redis_GiaBao2002"]
+
+volumes:
+  mongo-data:
+  my-data:
+  redis-data:
+
+networks:
+  backend_sell_tickets:
+    driver: bridge
