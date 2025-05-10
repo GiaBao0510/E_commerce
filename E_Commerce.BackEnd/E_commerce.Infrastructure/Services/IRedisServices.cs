@@ -26,6 +26,7 @@ namespace E_commerce.Infrastructure.Services
         Task<bool> SortedSetUpdateScore<T>(string key, double score, T value);
         Task<IEnumerable<T>> SortedSetRangeByRank<T>(string key, long start = 0, long end = -1);
         Task<IEnumerable<T>> SortedSetRangeByScore<T>(string key, double start = 0, double end = -1);
-        public Task<bool> SortedSetRemoveScoreByRange(string key, double start, double end);
+        Task<bool> SortedSetRemoveScoreByRange(string key, double start, double end);
+        Task<bool> CheckValueExistsInSortedSet(string key, string value);
     }
 }

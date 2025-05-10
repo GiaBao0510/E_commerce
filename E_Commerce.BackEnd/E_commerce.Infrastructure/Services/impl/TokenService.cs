@@ -3,10 +3,13 @@ using System.Security.Claims;
 using E_commerce.Application.Application;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.Extensions.Options;
 using E_commerce.Application.DTOs.Common;
 using System.Text;
 using E_commerce.Core.Exceptions;
+using E_commerce.Infrastructure.Utils;
+using Microsoft.Extensions.Options;
+using E_commerce.Application.DTOs.Requests;
+using CloudinaryDotNet;
 
 namespace E_commerce.Infrastructure.Services.impl
 {
@@ -14,13 +17,12 @@ namespace E_commerce.Infrastructure.Services.impl
     {
         #region ====[Private property]====
         private readonly IConfiguration _configuration;
-        private readonly ICustomFormat _customFormat;
-        private readonly IUserRepository _userRepository;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly SymmetricSecurityKey _secretKey;
+        private readonly IRedisServices _redisServices;
         private readonly ILogger _logger;
         private readonly string _issuer;
         private readonly string _audience;
-
         #endregion
 
         ///<Summary>
@@ -28,17 +30,18 @@ namespace E_commerce.Infrastructure.Services.impl
         /// </Summary>
         public TokenService(
             IConfiguration configuration, 
-            ICustomFormat customFormat, 
-            IUserRepository userRepository,
-            ILogger logger
+            IUnitOfWork unitOfWork,
+            ILogger logger,
+            IRedisServices redisServices
         )
         {
             _configuration = configuration;
-            _customFormat = customFormat;
-            _userRepository = userRepository;
+            _unitOfWork = unitOfWork;
             _logger = logger;
+            _redisServices = redisServices;
 
-            _secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Authentication:JWT:secret"])); // Lấy khóa bí mật từ cấu hình
+            // Lấy khóa bí mật từ cấu hình
+            _secretKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Authentication:JWT:secret"])); 
             _issuer = _configuration["Authentication:JWT:issuer"];
             _audience = _configuration["Authentication:JWT:audience"];
         }
@@ -62,74 +65,97 @@ namespace E_commerce.Infrastructure.Services.impl
             }
         }
 
-        //Kiểm tra xem token có hợp lệ không
-        public async Task<bool> CheckIfTokenIsValid(string token){
+        /// <summary>
+        /// Hàm này sẽ kiểm tra accesstoken cũ đã hết hạn
+        /// Mục đích là kiểm tra xem nguồn góc của token này có phải từ hệ thống cấp hay không
+        /// </summary>
+        /// <returns>True nếu token hợp lệ, false nếu không hợp lệ</returns>
+        public async Task<string> _renewToken(TokenModelDTO token){
 
             //Đầu vào không được bỏ trống
-            if(string.IsNullOrEmpty(token)){
-                _logger.Error("Token không không được bỏ trống");
-                throw new DetailsOfTheException(new Exception("Token không hợp lệ"), "Token không không được bỏ trống");
-            }
+            if(string.IsNullOrEmpty(token.accessToken) || string.IsNullOrEmpty(token.refreshToken))
+                throw new ValidationException("Token không không được bỏ trống");
             
             var jwtTokenHandler = new JwtSecurityTokenHandler();
+            var tokenValidateParam = new TokenValidationParameters{
+                ValidateIssuer = false,           
+                ValidateAudience = false,           
+                ValidateIssuerSigningKey = true,    //Kiểm tra chữ ký
+                ValidateLifetime = false,           //Vì kiểm tra token hết hạn. Nên tránh kiểm tra hạn sử dụng cảu nó
+                IssuerSigningKey = _secretKey,      //Khóa bí mật
+                ClockSkew = TimeSpan.Zero,          //Thời gian chênh lệch giữa máy chủ và máy khách
+            };
 
-            //Kiểm tra có thể đọc được token này không
-            if(!jwtTokenHandler.CanReadToken(token)){
-                _logger.Error("Token không hợp lệ");
-                throw new DetailsOfTheException(new Exception("Token không hợp lệ"), "Token không hợp lệ");
-            }
-
-            //0.Đọc thông tin từ token
-            var tokenData = jwtTokenHandler.ReadJwtToken(token);
-
-            var tokenValidParametes = new TokenValidationParameters{
+            try{
                 
-                //Tự cấp token
-                ValidateIssuer = false,     //Không kiểm tra người phát hành token 
-                ValidateAudience = false,   //Không kiểm tra đối tượng nhận token
-                ValidateLifetime = false,   //Không kiểm tra hết hạn của token. Vì đây là giai hạn lại toekn. Nếu không khai thuộc tính này có giá trị false thì nó sẽ báo lỗi
+                //check 1: Access token valid format
+                var tokenInVerification = jwtTokenHandler.ValidateToken(
+                    token.accessToken, 
+                    tokenValidateParam,
+                    out var validatedToken
+                );
 
-                //Ký vào token
-                ValidateIssuerSigningKey = true,    // kiểm tra khóa bí mật đã được sử dụng ký vào token, đảm bảo việc token không bị thay đổi
-                IssuerSigningKey = _secretKey,      // Khóa bí mật được sử dụng ở dạng byte sẽ được sử dụng để xác thực token, đây cũng là khóa sử dụng để ký xác thực
-                ClockSkew = TimeSpan.Zero           // Đặt độ lệch thời gian xác thực token là 0. 
-            }; 
+                //Check 2: Check algorithm - so sánh thuật toán mã hóa của token
+                if(validatedToken is JwtSecurityToken jwtSecurityToken){
+                    
+                    var result = jwtSecurityToken.Header.Alg.Equals(
+                        SecurityAlgorithms.HmacSha256Signature,
+                        StringComparison.InvariantCultureIgnoreCase
+                    );
 
-            //1. Kiểm tra valid format token
-            var tokenInverification = jwtTokenHandler.ValidateToken(
-                token, 
-                tokenValidParametes,
-                out var validatedToken
-            );
-
-            //2. Kiểm tra thuật toán mã hóa. Nếu không đúng thuật toán mã hóa thì trả về ngoại lệ
-            if(validatedToken is JwtSecurityToken jwtSecurityToken){
-                var result = jwtSecurityToken.Header        //So sánh kiểm tra có đúng thuật toán này có dùng để mã hóa khồng
-                    .Alg.Equals("http://www.w3.org/2001/04/xmldsig-more#hmac-sha256", 
-                        StringComparison.InvariantCultureIgnoreCase);
-
-                if(!result){
-                    _logger.Error("Thuật toán mã khóa token không hợp lệ");
-                    throw new DetailsOfTheException(new Exception("Token không hợp lệ"), "Thuật toán mã khóa token không hợp lệ");
+                    if(!result)
+                        throw new ValidationException("Thuật toán mã hóa token không hợp lệ");
                 }
-            }
-            
-            //3. Kiểm tra token còn hạn không
-            var utcExpireDate = long.Parse(tokenInverification.Claims.FirstOrDefault(
-                x => x.Type == System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Exp
-            ).Value);
 
-            var expireDate = _customFormat.ConvertUnixTimeToDateTime(utcExpireDate);
-            
-            if(expireDate < DateTime.UtcNow){
-                _logger.Error("Token đã hết hạn");
-                throw new DetailsOfTheException(new Exception("Token đã hết hạn"), "Token đã hết hạn");
+                //check 3: check accesstoken expired?
+                var utcExpireDate = long.Parse(tokenInVerification.Claims.FirstOrDefault( x => 
+                    x.Type == JwtRegisteredClaimNames.Exp).Value);
+                
+                var expireDate = CustomFormat.ConvertUnixTimeToDateTime(utcExpireDate);
+
+                if(expireDate > DateTime.UtcNow)
+                    throw new ValidationException("Token trên chưa hết hạn");
+                
+                //check 4: Check refresh token in white list and expired
+                double score = await _redisServices.SortedSetGetScoreByValue("white_list", token.refreshToken);
+                if(score == null || score < DateTimeOffset.UtcNow.ToUnixTimeSeconds())
+                    throw new ValidationException("RefreshToken không tồn tại trong whitelist hoặc RefreshToken đã hết hạn");
+                
+                //Cấp token mới 
+                BasicUserInfoDTO account = await _unitOfWork.users.GetBasicUserInfo(
+                    tokenInVerification.Claims.FirstOrDefault(x => 
+                        x.Type == ClaimTypes.NameIdentifier).Value
+                );
+
+                if(account == null)
+                    throw new ValidationException("Không tìm thấy thông tin người dùng trong hệ thống");
+
+                AccountInforDTO accountInforDTO = new AccountInforDTO{
+                    user_id = account.user_id,
+                    user_name = account.user_name,
+                    email = account.email,
+                    phone_num = account.phone_num
+                };
+
+                //Lưu access_token mới và xóa access_token cữ trong whitelist
+                
+                TokenDTO renew = await GenerateToken(accountInforDTO, 3);
+                double accesstokenScore = CustomFormat.ConvertDateTimeToUnixTimestamp(renew.expiration);
+                
+                await Task.WhenAll(
+                    _redisServices.SortedSetRemove("white_list", token.accessToken),
+                    _redisServices.SortedSetAdd("white_list", accesstokenScore, renew.token)
+                );
+
+                return renew.token;
             }
-            
-            return true;
+            catch(Exception ex) when(!(ex is ECommerceException)){
+                _logger.Error($"Lỗi khi kiểm tra nguồn gốc token: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex, "Lỗi khi kiểm tra nguồn gốc token");
+            }
         }
 
-        //Tạo Access token
+        //Tạo token
         public async Task<TokenDTO> GenerateToken(AccountInforDTO accountInforDTO, int time = 24){
             try{
                 var creds = new SigningCredentials(_secretKey, SecurityAlgorithms.HmacSha256Signature); // Tạo chữ ký cho token
@@ -144,7 +170,7 @@ namespace E_commerce.Infrastructure.Services.impl
                 };
 
                 //Lấy danh sách vai trò của người dùng
-                var roles = await _userRepository.ListOfRoleNames(accountInforDTO.user_id);
+                var roles = await _unitOfWork.users.ListOfRoleNames(accountInforDTO.user_id);
                 foreach(var role in roles){
                     claims.Add(new Claim(ClaimTypes.Role, role.role_name));
                 }
@@ -160,21 +186,21 @@ namespace E_commerce.Infrastructure.Services.impl
 
                 var handler = new JwtSecurityTokenHandler();
 
-                return new TokenDTO{
+                return new TokenDTO{ 
                     token = handler.WriteToken(token),  //Chuyển đổi token thành chuỗi
                     expiration = token.ValidTo,         //Thời gian hết hạn của token
                     UID = accountInforDTO.user_id       //ID của người dùng
                 };
 
-            }catch(Exception ex){
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 throw new DetailsOfTheException(ex,$"Lỗi khi tạo token");
             }
         }
+    }
+}
 
         //Thu hồi access token
         //public Task<bool> RevokeAccessToken(string token);
 
         //Thu hồi refresh token
-        //public Task<bool> RevokeRefreshToken(string token);        
-    }
-}
+        //public Task<bool> RevokeRefreshToken(string token);     

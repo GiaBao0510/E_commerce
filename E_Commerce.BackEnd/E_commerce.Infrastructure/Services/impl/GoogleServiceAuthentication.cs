@@ -8,10 +8,12 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Dapper;
 using E_commerce.Application.Application;
+using E_commerce.Application.DTOs.Common;
 using E_commerce.Application.DTOs.Requests;
 using E_commerce.Core.Entities;
 using E_commerce.Core.Exceptions;
 using E_commerce.Infrastructure.Data;
+using E_commerce.Infrastructure.Utils;
 using E_commerce.SQL.Queries;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -25,11 +27,13 @@ namespace E_commerce.Infrastructure.Services.impl
         private readonly DatabaseConnectionFactory _connectionFactory;
         private readonly ILogger _logger;
         private readonly IConfiguration _configuration;
-        private readonly HttpClient _httpClient;            //HttpClient để gửi yêu cầu đến Google API
-        private JsonWebKeySet _jsonWebKeySet;      //JsonWebKeySet chứa danh sách các khóa công khai (cache)
-        private readonly object _lock = new object();       //Đối tượng khóa để đồng bộ hóa truy cập đến _jsonWebKeySet
-        private DateTime _lastKeyFetch = DateTime.MinValue;      //Thời gian khóa công khai được lấy gần nhất
+        private readonly HttpClient _httpClient;                //HttpClient để gửi yêu cầu đến Google API
+        private JsonWebKeySet _jsonWebKeySet;                   //JsonWebKeySet chứa danh sách các khóa công khai (cache)
+        private readonly object _lock = new object();           //Đối tượng khóa để đồng bộ hóa truy cập đến _jsonWebKeySet
+        private DateTime _lastKeyFetch = DateTime.MinValue;     //Thời gian khóa công khai được lấy gần nhất
         private readonly ICustomerRepository _customerRepository;
+        private readonly ITokenService _tokenService;
+        private readonly ITokenListManagementService _tokenListService;
         #endregion
 
         /// <summary>
@@ -40,7 +44,9 @@ namespace E_commerce.Infrastructure.Services.impl
             ILogger logger,
             ICustomerRepository customerRepository,
             IConfiguration configuration,
-            HttpClient httpClient
+            HttpClient httpClient,
+            ITokenService tokenService,
+            ITokenListManagementService tokenListService
         ){
             _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -48,6 +54,8 @@ namespace E_commerce.Infrastructure.Services.impl
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _jsonWebKeySet = new JsonWebKeySet();
+            _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
+            _tokenListService = tokenListService ?? throw new ArgumentNullException(nameof(tokenListService));
         }
 
         /// <summary>
@@ -148,16 +156,71 @@ namespace E_commerce.Infrastructure.Services.impl
         }
 
         /// <summary>
+        /// Kiểm tra email người dùng cố tồn tại không, Nếu chưa thì tạo mới
+        /// </summary> 
+        public async Task<_User> GetOrCreateUser(string email, string name){
+            try
+            {
+                //Tạo người dùng mới hoặc lấy thông tin người dùng nếu email đã tồn tại
+                using var connection = _connectionFactory.CreateConnection();
+
+                _User result = await connection.QueryFirstOrDefaultAsync<_User>(
+                    UserQueries.GetOrCreateUserByEmail,
+                    new { email, user_name = name }
+                );
+
+                return result;
+            }
+            catch(MySqlException ex){
+                _logger.Error($"Database error when Get or create User by email: {email}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
+                throw new DetailsOfTheMysqlException(ex);
+            }
+            catch(Exception ex) when (!(ex is ECommerceException)){
+                _logger.Error($"Error when Get or create User by email: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
+            }
+        } 
+
+
+        /// <summary>
         /// Đăng nhập bằng google
         /// </summary>
-        public async Task<(string, string)> Login(string name, string email){
+        public async Task<(TokenDTO, TokenDTO)> Login(GoogleVerificationDTO googleVerificationDTO){
             try{
 
-                //1.Kiểm tra email người dùng có tồn tại trong tài khoảng không
-                //Nếu chưa thì tạo mới tài khoản cho khách hàng
-                //Nếu có thì 
-            }
+                //1. Xác thực token từ google
+                var (email, name) = await VerifyGoogleToken(googleVerificationDTO);
+                if(email == null || name == null)
+                    throw new DetailsOfTheException(new Exception("Không thể xác thực thông tin từ Google"));
 
+                //2. Thực hiện tạo mới tài khoản neeys chưa tồn tại. ĐỒng thời lấy thông tin người dùng
+                _User user = await GetOrCreateUser(email, name);
+
+                //3. cấp access_token và refresh_token từ phía server E_commerce tự cấp dựa trên UserID 
+                AccountInforDTO account = new AccountInforDTO{
+                    user_id = user.user_id,
+                    user_name = user.user_name,
+                    email = user.email
+                };
+
+                //3.1 Tạo access_token và refresh_token
+                TokenDTO access_token = await _tokenService.GenerateToken(account, 3);
+                TokenDTO refresh_token = await _tokenService.GenerateToken(account, 24 * 30);
+
+                //3.2 Lưu access_token & refresh_token vào white_list
+                double access_token_Score = CustomFormat.ConvertDateTimeToUnixTimestamp(access_token.expiration);
+                double refresh_token_Score = CustomFormat.ConvertDateTimeToUnixTimestamp(refresh_token.expiration);
+        
+                await _tokenListService.AddTokenToSortedSet(access_token.token, access_token_Score);
+                await _tokenListService.AddTokenToSortedSet(refresh_token.token, refresh_token_Score);
+
+                //Trả về kết quả
+                return (access_token, refresh_token);
+            }
+            catch(Exception ex) when (!(ex is ECommerceException)){
+                _logger.Error($"Đăng nhập Google thất bại: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex, "Đăng nhập Google thất bại.");
+            }
         }
     }
 }

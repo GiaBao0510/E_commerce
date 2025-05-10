@@ -1,29 +1,26 @@
 using MySql.Data.MySqlClient;
-using System.Data;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.EntityFrameworkCore;
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
-using BCrypt.Net;
 using E_commerce.Core.Exceptions;
 using E_commerce.Application.Application;
 using E_commerce.Core.Entities;
-using E_commerce.Infrastructure.Data;
 using E_commerce.Infrastructure.Constants;
 using E_commerce.SQL.Queries;
 using Dapper;
 using E_commerce.Application.DTOs.Common;
+using E_commerce.Infrastructure.Utils;
+using Microsoft.AspNetCore.Http;
+using E_commerce.Infrastructure.Services;
+using E_commerce.Infrastructure.Data;
 
 namespace E_commerce.Infrastructure.repositories
 {
-    public class UserRepository: IUserRepository
+    public class UserRepository: BaseRepository<_User>,IUserRepository
     {
         #region ======[Private property]=====
-        private readonly ILogger _logger;
-        private readonly ICodeGenerator _codeGenerator;
-        private readonly DatabaseConnectionFactory _connectionFactory;
         private readonly ICheckoForDuplicateErrors _checkoForDuplicateErrors;
-        private readonly ICustomFormat _customFormat;
+        private readonly ICloudinaryServices _cloudinaryServices;
+        private readonly DatabaseConnectionFactory _databaseConnectionFactory;
         #endregion
 
         /// <summary>
@@ -31,16 +28,14 @@ namespace E_commerce.Infrastructure.repositories
         /// </summary>
         public UserRepository(
             ILogger logger,
+            IUnitOfWork unitOfWork,
+            ICloudinaryServices cloudinaryServices,
             ICheckoForDuplicateErrors checkoForDuplicateErrors,
-            ICodeGenerator codeGenerator,
-            DatabaseConnectionFactory connectionFactory,
-            ICustomFormat customFormat
-        ){
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
-            _codeGenerator = codeGenerator ?? throw new ArgumentNullException(nameof(codeGenerator));
-            _customFormat = customFormat ?? throw new ArgumentNullException(nameof(customFormat));
+            DatabaseConnectionFactory databaseConnectionFactory
+        ):base(unitOfWork, logger){
+            _cloudinaryServices = cloudinaryServices ?? throw new ArgumentNullException(nameof(cloudinaryServices));
             _checkoForDuplicateErrors = checkoForDuplicateErrors ?? throw new ArgumentNullException(nameof(checkoForDuplicateErrors));
+            _databaseConnectionFactory = databaseConnectionFactory ?? throw new ArgumentNullException(nameof(databaseConnectionFactory));
         }
 
         /// <summary>
@@ -69,36 +64,85 @@ namespace E_commerce.Infrastructure.repositories
             
             ValidateUserId(id);
 
-            using( var connection = _connectionFactory.CreateConnection()){
-                
-                var result = await connection.QueryFirstOrDefaultAsync<_User>(
-                    UserQueries.UserByID,
-                    new { user_id = id }
+            var result = await Connection.QueryFirstOrDefaultAsync<_User>(
+                UserQueries.UserByID,
+                new { user_id = id },
+                transaction: Transaction
+            );
+            
+            if(result == null)
+                throw new ResourceNotFoundException($"Không tìm thấy người dùng với ID: {id}");
+            
+            return result;
+            
+        }
+
+        /// <summary>
+        /// Kiểm tra xem Email người dùng có tồn tại không
+        /// </summary>
+        public async Task<bool> IsUserEmailExists(string email)
+        {
+            try{
+                var result = await Connection.QueryFirstOrDefaultAsync<_User>(
+                    UserQueries.FindUserByEmail,
+                    new { email = email },
+                    transaction: Transaction
                 );
-                
+
                 if(result == null)
-                    throw new ResourceNotFoundException($"Không tìm thấy người dùng với ID: {id}");
-                
-                return result;
+                    return false;
+                return true;
+            }catch(DbUpdateException ex){
+                _logger.Error($"Database error when checking email: {ex.Message}", ex);
+                throw new DatabaseException("Lỗi khi kiểm tra email người dùng");
+            }
+            catch(Exception ex) when (! (ex is ECommerceException)) {
+                _logger.Error($"Error checking email: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
+            }
+        }
+
+        /// <summary>
+        /// Kiểm tra xem số điện thoại của người dùng có tồn tại không
+        /// </summary>
+        public async Task<bool> IsUserPhoneNumerExists(string phone_num)
+        {
+            try{
+                var result = await Connection.QueryFirstOrDefaultAsync<_User>(
+                    UserQueries.FindUserByPhoneNum,
+                    new { phone_num = phone_num },
+                    transaction: Transaction
+                );
+
+                if(result == null)
+                    return false;
+                return true;
+            }catch(DbUpdateException ex){
+                _logger.Error($"Database error when checking email: {ex.Message}", ex);
+                throw new DatabaseException("Lỗi khi kiểm tra email người dùng");
+            }
+            catch(Exception ex) when (! (ex is ECommerceException)) {
+                _logger.Error($"Error checking email: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
             }
         }
 
         /// <summary>
         /// Lấy danh sách người dùng
         /// </summary>
-        public async Task<IReadOnlyList<_User>> GetAllAsync(){
+        public override async Task<IReadOnlyList<_User>> GetAllAsync(){
             try
             {
-                using(var connection = _connectionFactory.CreateConnection()){
-                    var query = UserQueries.AllUser;
-                    var users = await connection.QueryAsync<_User>(query);
-                    return users.ToList();
-                }
+                var users = await Connection.QueryAsync<_User>(
+                    UserQueries.AllUser,
+                    transaction: Transaction
+                );
+                return users.ToList();
             }catch(DbUpdateException ex){
                 _logger.Error($"Database error when retrieving all user", ex);
                 throw new DatabaseException("Lỗi khi truy vấn danh sách người dùng");
             }
-            catch(Exception ex){
+            catch(Exception ex) when (! (ex is ECommerceException)){
                 _logger.Error($"Error retrieving all user: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -107,16 +151,16 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Lấy thông tin người dùng dựa trên ID
         /// </summary>
-        public async Task<_User> GetByIdAsync(string id){
+        public override async Task<_User> GetByIdAsync(string id){
             
             ValidateUserId(id);
 
             try
             {
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.QueryFirstOrDefaultAsync<_User>(
+                var result = await Connection.QueryFirstOrDefaultAsync<_User>(
                     UserQueries.UserByID,
-                    new { user_id = id }
+                    new { user_id = id },
+                    transaction: Transaction
                 );
                 
                 if(result == null)
@@ -132,15 +176,39 @@ namespace E_commerce.Infrastructure.repositories
                 _logger.Error($"Error retrieving User with ID: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
+        }
+
+        /// <summary>
+        /// Lấy thông tin cơ bản người dùng
+        /// </summary>
+        public async Task<BasicUserInfoDTO> GetBasicUserInfo(string uid){
+            try{
+                
+                using var connection = _databaseConnectionFactory.CreateConnection();
+                BasicUserInfoDTO result = await connection.QueryFirstOrDefaultAsync<BasicUserInfoDTO>(
+                    UserQueries.UserByID,
+                    new {user_id = uid}
+                ) ?? throw new ResourceNotFoundException($"Không tìm thấy người dùng với ID: {uid}");
+
+                var roles = await ListOfRoleNames(uid) 
+                    ?? Array.Empty<RoleNamesDTO>();
+
+                result.roles = roles.Select(r => r.role_name).ToList();
+                return result;
+            }
+            catch(Exception ex) when (!(ex is ECommerceException)){
+                _logger.Error($"Error retrieving User with ID: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
+            }
         } 
 
         /// <summary>
         /// Thêm một User mới vào cơ sở dữ liệu
         /// </summary>
-        public async Task<string> AddAsync(_User user)
+        public override async Task<string> AddAsync(_User user)
         {
             //Lấy UID tự động
-            var UID = _codeGenerator.GenerateUID();
+            var UID = CodeGenerator.GenerateUID();
             user.user_id = UID;
 
             ValidateUser(user);
@@ -154,8 +222,11 @@ namespace E_commerce.Infrastructure.repositories
                 user.pass_word = BCrypt.Net.BCrypt.HashPassword(user.pass_word);
 
                 //Thêm dữ liệu
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(UserQueries.AddUser, user);
+               var result = await Connection.ExecuteAsync(
+                    UserQueries.AddUser, 
+                    user,
+                    transaction: Transaction
+                );
             
                 return UID;
             }
@@ -176,7 +247,7 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Cập nhật thông tin từ User mới vào cơ sở dữ liệu
         /// </summary>
-        public async Task<string> UpdateAsync(_User entity){
+        public override async Task<string> UpdateAsync(_User entity){
             
             ValidateUser(entity); 
 
@@ -205,14 +276,14 @@ namespace E_commerce.Infrastructure.repositories
                 
                 // Copy other properties
                 existingUser.user_name = entity.user_name;
-                existingUser.date_of_birth = _customFormat.FormatDateOfBirth(entity.date_of_birth);
+                existingUser.date_of_birth = CustomFormat.FormatDateOfBirth(entity.date_of_birth);
                 existingUser.address = entity.address;
                     
                 // Lưu thay đổi
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
+                var result = await Connection.ExecuteAsync(
                     UserQueries.UpdateUser,
-                    existingUser
+                    existingUser,
+                    transaction: Transaction
                 );
 
                 if(result <= 0)
@@ -247,7 +318,7 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Xóa vai trò dựa trên ID
         /// </summary>
-        public async Task<string> DeleteAsync(string id){
+        public override async Task<string> DeleteAsync(string id){
             ValidateUserId(id);
 
             try
@@ -258,17 +329,17 @@ namespace E_commerce.Infrastructure.repositories
                     throw new ResourceNotFoundException($"Không tìm thấy người dùng với ID: {id}");
 
                 //Xóa người dùng
-                using(var connection = _connectionFactory.CreateConnection()){
-                    var result = await connection.ExecuteAsync(
-                        UserQueries.DeleteUser,
-                        new { user_id = id }
-                    );
+                var result = await Connection.ExecuteAsync(
+                    UserQueries.DeleteUser,
+                    new { user_id = id },
+                    transaction: Transaction
+                );
 
-                    if(result <= 0)
-                        throw new ResourceNotFoundException($"Không tìm thấy người dùng với ID: {id}");
+                if(result <= 0)
+                    throw new ResourceNotFoundException($"Không tìm thấy người dùng với ID: {id}");
+            
+                return "SUCCESS";
                 
-                    return "SUCCESS";
-                }
             }
             catch (DbUpdateException ex)
             {
@@ -285,7 +356,7 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Cập nhật User dựa trên ID
         /// </summary>
-        public async Task<string> PatchAsync(string id, JsonPatchDocument<_User> patchDoc){
+        public override async Task<string> PatchAsync(string id, JsonPatchDocument<_User> patchDoc){
 
             ValidateUserId(id);
             
@@ -302,12 +373,12 @@ namespace E_commerce.Infrastructure.repositories
                 //Áp dụng các thay đổi
                 patchDoc.ApplyTo(user);
 
-                user.date_of_birth = _customFormat.FormatDateOfBirth(user.date_of_birth);
+                user.date_of_birth = CustomFormat.FormatDateOfBirth(user.date_of_birth);
 
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
+                var result = await Connection.ExecuteAsync(
                     UserQueries.PatchUser,
-                    user
+                    user,
+                    transaction: Transaction
                 );
 
                 if(result <= 0)
@@ -340,7 +411,7 @@ namespace E_commerce.Infrastructure.repositories
             ValidateUserId(uid);
 
             try{
-                using var connection = _connectionFactory.CreateConnection();
+                using var connection = _databaseConnectionFactory.CreateConnection();
                 var result = await connection.QueryAsync<RoleNamesDTO>(
                     UserQueries.GetListOfRoleBasedOnUser,
                     new { user_id = uid }
@@ -351,7 +422,7 @@ namespace E_commerce.Infrastructure.repositories
                 _logger.Error($"Database error when retrieving all user", ex);
                 throw new DatabaseException($"Lỗi khi lấy danh sách vai trò dựa trên ID người dùng: {uid}");
             }
-            catch(Exception ex){
+            catch(Exception ex) when (! (ex is ECommerceException)){
                 _logger.Error($"Error getting list of role names user: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -365,10 +436,10 @@ namespace E_commerce.Infrastructure.repositories
             ValidateUserId(uid);
 
             try{
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.QueryFirstAsync<string>(
+                var result = await Connection.QueryFirstAsync<string>(
                     UserQueries.GetHashedPasswordByUserID,
-                    new { user_id = uid }
+                    new { user_id = uid },
+                    transaction: Transaction
                 );
                 
                 return result;
@@ -377,8 +448,119 @@ namespace E_commerce.Infrastructure.repositories
                 _logger.Error($"Database error when retrieving all user", ex);
                 throw new DatabaseException($"Lỗi khi lấy danh sách vai trò dựa trên ID người dùng: {uid}");
             }
-            catch(Exception ex){
+            catch(Exception ex) when (! (ex is ECommerceException)){
                 _logger.Error($"Error getting list of role names user: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
+            }
+        }
+
+        /// <summary>
+        /// Thêm ảnh ngươi dùng dựa trên ID người dùng
+        /// </summary>
+        public async Task AddImageForUser(string uid, IFormFile file){
+            try{
+                //Kiểm tra ID người dùng
+                await IsUserIdExists(uid);
+
+                //Thêm ảnh vào cloudinary
+                var imageUrl = await _cloudinaryServices.AddImageAssync(file);
+
+                //Thêm public_id và path_img vào trong db
+                var result = await Connection.ExecuteScalarAsync<int>(
+                    ImageQueries.AddImage,
+                    new{
+                        public_id = imageUrl.PublicId,
+                        path_img = imageUrl.Url?.ToString()
+                    },
+                    transaction: Transaction
+                );
+
+                _logger.Info($"Thông tin ảnh");
+
+                //Lấy image_ID dựa trên UID rồi thêm vào bảng UserPhotoDetails
+                await Connection.ExecuteAsync(
+                    UserPhotoDetailsQueries.AddUserPhotoDetails,
+                    new{
+                        user_id = uid,
+                        img_id = result
+                    },
+                    transaction: Transaction
+                );
+
+            }
+            catch(DbUpdateException ex){
+                _logger.Error($"Database error when add image for use", ex);
+                throw new DatabaseException($"Lỗi khi thêm ảnh dựa trên ID người dùng: {uid}");
+            }
+            
+            catch(Exception ex) when (! (ex is ECommerceException)){
+                _logger.Error($"Error when add image for user: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
+            }
+        }
+
+        /// <summary>
+        /// Xóa ảnh người dùng dựa trên ID người dùng
+        /// </summary>
+        public async Task DeleteImageForUser(string uid){
+            try{
+                //Kiểm tra ID người dùng có tồn tại không
+                await IsUserIdExists(uid);
+
+                //Lấy thông tin image dựa trên UID
+                _Image imageId = await Connection.QueryFirstOrDefaultAsync<_Image>(
+                    UserPhotoDetailsQueries.GetImageIdByUserId,
+                    new { user_id = uid },
+                    transaction: Transaction
+                );
+
+                //Xóa ảnh trong DB
+                await Connection.ExecuteAsync(
+                    ImageQueries.DeleteImageByID,
+                    new { img_id = imageId.img_id },
+                    transaction: Transaction
+                );
+
+
+                //Xóa ảnh trong cloudinary
+                var result = await _cloudinaryServices.DeleteImageAssync(imageId.public_id);
+                _logger.Info($@"Xóa ảnh trong cloudinary: 
+                    status {result.StatusCode},  
+                    public_id: {imageId.public_id}, 
+                    img_id: {imageId.img_id}, 
+                    Uid: {uid}
+                ");
+            }
+            catch(DbUpdateException ex){
+                _logger.Error($"Database error when delete user's image", ex);
+                throw new DatabaseException($"Lỗi khi xóa ảnh dựa trên ID người dùng: {uid}");
+            }
+            
+            catch(Exception ex) when (! (ex is ECommerceException)){
+                _logger.Error($"Error when delete user's image: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
+            }
+        }
+
+        /// <summary>
+        /// Câp nhật ảnh người dùng dựa trên ID người dùng
+        /// </summary>
+        public async Task UpdateImageForUser(string uid, IFormFile file){
+            try{
+
+                //Xóa ảnh cũ của người dùng trước
+                await DeleteImageForUser(uid);
+
+                //Thêm ảnh mới vào cloudinary
+                await AddImageForUser(uid, file);
+            }
+            catch(DbUpdateException ex){
+                _logger.Error($"Database error when update user's image", ex);
+                throw new DatabaseException($"Lỗi khi cập nhật ảnh dựa trên ID người dùng: {uid}");
+            }
+            
+            catch(Exception ex) when (! (ex is ECommerceException)){
+                _logger.Error($"Error when update user's image: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
         }

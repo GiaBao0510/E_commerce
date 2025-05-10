@@ -8,11 +8,11 @@ namespace E_commerce.Infrastructure.Data
 {
     public class DatabaseConnectionFactory
     {
-        private readonly string _connectionString;
+        private readonly string _connectionString;  
         private readonly ILogger _logger;
-        private readonly int _retryCount = 3;
-        private readonly int _retryDelayMs = 500;
-        private static readonly HashSet<int> RetryableErrorCode = new HashSet<int>{
+        private readonly int _retryCount = 3;   
+        private readonly int _retryDelayMs = 500;  
+        private static readonly HashSet<int> RetryableErrorCode = new HashSet<int>{ 
             1042,   // Không thể kết nối đến mấy kỳ máy chủ MySQL nào được chỉ định
             1043,   // Bắt tay tệ
             1045,   // Tài khoản không có quyền truy cập vào máy chủ MySQL
@@ -118,8 +118,11 @@ namespace E_commerce.Infrastructure.Data
                  _logger.Error($"Connection validation failed: {ex.Message}", ex);
                 return false;
             }
-        }
+        } 
 
+        /// <summary>
+        /// Khởi động pool kết nối với số lượng kết nối tối thiểu
+        /// </summary>
         public void WarmupConnectionPool(){
             try{
                 List<IDbConnection> connections = new List<IDbConnection>();

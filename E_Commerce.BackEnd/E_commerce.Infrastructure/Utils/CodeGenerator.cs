@@ -1,17 +1,17 @@
-using E_commerce.Application.Application;
-
 namespace E_commerce.Infrastructure.Utils
 {
-    public class CodeGenerator: ICodeGenerator
+    public class CodeGenerator
     {
         private static readonly Random _random = new Random();
         private const string _letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         private const string _numbers = "0123456789";
 
+        static CodeGenerator(){ }
+
         /// <summary>
         ///Tạo một chuỗi số ngẫu nhiên 
         /// </summary>
-        public string GenerateRandomNumber(int length){
+        public static string GenerateRandomNumber(int length){
             return new string(Enumerable.Repeat(_numbers, length)
                 .Select(s => s[_random.Next(s.Length)]).ToArray());
         }
@@ -19,22 +19,22 @@ namespace E_commerce.Infrastructure.Utils
         /// <summary>
         ///Tạo một chuỗi ngẫu nhiên 
         /// </summary>
-        public string GenerateRandomString(int length){
+        public static string GenerateRandomString(int length){
             return new string(Enumerable.Repeat(_letters+_numbers, length)
                 .Select(s => s[_random.Next(s.Length)]).ToArray());
         }
 
-        public string GetTimePart(){
+        public static string GetTimePart(){
             DateTime now = DateTime.UtcNow;
             return now.ToString("HHmmss");
         }
 
-        public string GetDatePart(){
+        public static string GetDatePart(){
             DateTime now = DateTime.UtcNow;
             return now.ToString("yyMMdd");
         }
 
-        public string GenerateUID(){
+        public static string GenerateUID(){
             string TimePart = GetTimePart();
             string DatePart = GetDatePart();
             string RandomPart = GenerateRandomString(6);

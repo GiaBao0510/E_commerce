@@ -4,6 +4,7 @@ using E_commerce.Application.DTOs.Common;
 using E_commerce.Application.DTOs.Requests;
 using E_commerce.Core.Exceptions;
 using E_commerce.Infrastructure.Data;
+using E_commerce.Infrastructure.Utils;
 using E_commerce.SQL.Queries;
 using MySql.Data.MySqlClient;
 
@@ -14,9 +15,9 @@ namespace E_commerce.Infrastructure.Services.impl
         #region ======[Private property]=====
         private readonly ILogger _logger;
         private readonly DatabaseConnectionFactory _connectionFactory;
-        private readonly IUserRepository _userRepository;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly ITokenService _tokenService;
-        private readonly ITokenListService _tokenListService;
+        private readonly ITokenListManagementService _tokenListService;
         #endregion
 
         /// <summary>
@@ -25,14 +26,14 @@ namespace E_commerce.Infrastructure.Services.impl
         public AccountServices(
             ILogger logger,
             DatabaseConnectionFactory connectionFactory,
-            IUserRepository userRepository,
+            IUnitOfWork unitOfWork,
             ITokenService tokenService,
-            ITokenListService tokenListService
+            ITokenListManagementService tokenListService
         )
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
-            _userRepository = userRepository ?? throw new ArgumentNullException(nameof(userRepository));
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _tokenListService = tokenListService ?? throw new ArgumentNullException(nameof(tokenListService));
         }
@@ -40,8 +41,8 @@ namespace E_commerce.Infrastructure.Services.impl
         //Kiểm tra tài khoản có bị khóa không
         public async Task<bool> CheckIfAccountIsBlocked(string phone_num){
             try{
+               
                 using var connection = _connectionFactory.CreateConnection();
-                
                 var result = await connection.ExecuteScalarAsync<int>(
                     AccountQueries.CheckIfAccountIsBlocked,
                     new { phone_num = phone_num }
@@ -89,15 +90,6 @@ namespace E_commerce.Infrastructure.Services.impl
                 if(string.IsNullOrEmpty(login.phone_num) || string.IsNullOrEmpty(login.pass_word))
                     throw new ValidationException("Tài khoản hoặc mật khẩu không được để trống!");
                 
-                //Kiểm tra tài khoản có bị khóa không
-                if(await CheckIfAccountIsBlocked(login.phone_num))
-                    throw new ResourceNotFoundException($"Tài khoản {login.phone_num} đã bị khóa!");
-
-                
-                //Kiểm tra tài khoản có bị xóa không
-                if(await CheckIfAccountIsDeleted(login.phone_num))
-                    throw new ResourceNotFoundException($"Tài khoản {login.phone_num} đã bị xóa!");
-
                 //Kiểm tra lấy số điện thoại, mật khẩu đã băm và UID người dùng dựa trên thông tin đầu vào
                 using var connection = _connectionFactory.CreateConnection();
                 AccountInforDTO result = await connection.QueryFirstOrDefaultAsync<AccountInforDTO>(
@@ -105,24 +97,43 @@ namespace E_commerce.Infrastructure.Services.impl
                     new {login.phone_num }
                 );
 
-                //Kiểm tra null
+                //Kiểm tra null - Tài khoản không tồn tại
                 if(result == null)
                     throw new ResourceNotFoundException($"Tài khoản {login.phone_num} không tồn tại!");
+
+                //Kiểm tra tài khoản có bị khóa không
+                if(result.is_block == 1)
+                    throw new ResourceNotFoundException($"Tài khoản {login.phone_num} đã bị khóa!");
+
+                //Kiểm tra tài khoản có bị xóa không
+                if(result.is_delete == 1)
+                    throw new ResourceNotFoundException($"Tài khoản {login.phone_num} đã bị xóa!");
 
                 //Kiểm tra mật khẩu có trùng khớp không
                 bool isPwdCorrect = BCrypt.Net.BCrypt.Verify( login.pass_word, result.pass_word);
                 if(!isPwdCorrect)
                     throw new ValidationException("Mật khẩu không đúng!");
                 
-                //Tạo access token & refreshtoken dựa trên người dùng
-                TokenDTO accesstoken = await _tokenService.GenerateToken(result, 3);
-                TokenDTO refreshtoken = await _tokenService.GenerateToken(result, 24 * 30); //Thời gian hết hạn là 30 ngày
+                //Tạo access token & refreshtoken dựa trên người dùng (task song song)
+                var accessTokenTask =  _tokenService.GenerateToken(result, 3);
+                var refreshTokenTask =  _tokenService.GenerateToken(result, 24 * 30); //Thời gian hết hạn là 30 ngày
+                await Task.WhenAll(accessTokenTask, refreshTokenTask);
+                
+                var accesstoken = accessTokenTask.Result;
+                var refreshtoken = refreshTokenTask.Result;
 
                 double expiration = (refreshtoken.expiration - DateTime.UnixEpoch).TotalSeconds; //Thời gian hết hạn của refreshtoken 
 
-                //Lưu refresh token vào trong whiteList
-                bool ketqua = await _tokenListService.AddTokenToSortedSetWithMapping( result.user_id ,refreshtoken.token, expiration , "white_list");
-                 
+                //Lưu accesstoken & refresh token vào trong whiteList
+                double accesstokenScore = CustomFormat.ConvertDateTimeToUnixTimestamp(accesstoken.expiration),
+                        refreshtokenScore = CustomFormat.ConvertDateTimeToUnixTimestamp(refreshtoken.expiration);
+
+                await Task.WhenAll(
+                    _tokenListService.AddTokenToSortedSet( accesstoken.token, accesstokenScore),
+                    _tokenListService.AddTokenToSortedSet( refreshtoken.token, refreshtokenScore)
+                );
+               
+
                 //Chỉ gửi accessToken 
                 return (accesstoken, refreshtoken);
                 
@@ -145,7 +156,7 @@ namespace E_commerce.Infrastructure.Services.impl
             try{
                 
                 //Kiểm tra tài khoản có tồn tại không
-                await _userRepository.IsUserIdExists(user_id);
+                await _unitOfWork.users.IsUserIdExists(user_id);
 
                 using var connection = _connectionFactory.CreateConnection();
                 
@@ -166,54 +177,18 @@ namespace E_commerce.Infrastructure.Services.impl
             }
         }
 
-        //Khóa tài khoản
-        public async Task<bool> BlockAccount(string user_id){
-            try{
-                
-                //Kiểm tra tài khoản có tồn tại không
-                await _userRepository.IsUserIdExists(user_id);
-
-                //Lấy refreshtoken từ ánh xạ
-                var refreshToken = await _tokenListService.GetTokenByUID(user_id);
-                if(!string.IsNullOrEmpty(refreshToken)){
-                    
-                    //Kiểm tra refresh token có tồn tại trong whiteList không
-                    var score = await _tokenListService.IsTokenInSortedSet(refreshToken);
-                    if(score != -1){
-
-                        //Xóa refresh token trong whiteList
-                        await _tokenListService.DeleteTokenFromSortedSet(refreshToken, "white_list");
-                        
-                        //Thêm token vào trong blacklist
-                        await _tokenListService.AddTokenToSortedSetWithMapping(user_id, refreshToken, score, "black_list");
-                    }
-                }
-
-                using var connection = _connectionFactory.CreateConnection();
-                
-                var result = await connection.ExecuteScalarAsync<int>(
-                    AccountQueries.BlockAccount,
-                    new { user_id }
-                );
-
-                return result > 0;
-            }
-            catch(MySqlException ex){
-                _logger.Error($"Database error when Delete Account: {user_id}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
-                throw new DetailsOfTheMysqlException(ex);
-            }
-            catch(Exception ex) when (!(ex is ECommerceException)){
-                _logger.Error($"Error wher delete account: {ex.Message}", ex);
-                throw new DetailsOfTheException(ex);
-            }
-        }
+        /// <summary>
+        /// KHóa tài khoản (sẽ triển khai sau)
+        /// </summary>
+        // public async Task<bool> BlockAccount(string user_id){
+        // }
 
         //Khôi phục tài khoản
         public async Task<bool> RecoverAccount(string user_id){
             try{
                 
                 //Kiểm tra tài khoản có tồn tại không
-                await _userRepository.IsUserIdExists(user_id);
+                await _unitOfWork.users.IsUserIdExists(user_id);
 
                 using var connection = _connectionFactory.CreateConnection();
                 
@@ -239,7 +214,7 @@ namespace E_commerce.Infrastructure.Services.impl
             try{
                 
                 //Kiểm tra tài khoản có tồn tại không
-                await _userRepository.IsUserIdExists(user_id);
+                await _unitOfWork.users.IsUserIdExists(user_id);
 
                 using var connection = _connectionFactory.CreateConnection();
                 
@@ -265,7 +240,7 @@ namespace E_commerce.Infrastructure.Services.impl
             try{
                 
                 //Lấy mật khẩu đã băm dựa trên ID người dùng
-                string HashPassword = await _userRepository.GetHashedPasswordByUserID(user_id);
+                string HashPassword = await _unitOfWork.users.GetHashedPasswordByUserID(user_id);
 
                 //Kiểm tra đầu vào không được rỗng
                 if(string.IsNullOrEmpty(changePasswordDTO.old_pwd) || string.IsNullOrEmpty(changePasswordDTO.new_pwd))

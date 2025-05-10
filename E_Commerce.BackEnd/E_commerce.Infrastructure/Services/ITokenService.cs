@@ -1,4 +1,5 @@
 using E_commerce.Application.DTOs.Common;
+using E_commerce.Application.DTOs.Requests;
 
 namespace E_commerce.Infrastructure.Services
 {
@@ -7,8 +8,8 @@ namespace E_commerce.Infrastructure.Services
         //Kiểm tra token còn hạn không
         public Task<bool> CheckIfTokenIsExpired(string token);
 
-        //Kiểm tra xem token có hợp lệ không
-        public Task<bool> CheckIfTokenIsValid(string token);
+        //Kiểm tra nguồn gốc của accessToken đã hết hạn
+        public Task<string> _renewToken(TokenModelDTO token);
 
         //Tạo Access token
         public Task<TokenDTO> GenerateToken(AccountInforDTO accountInforDTO, int time = 24);

@@ -2,11 +2,16 @@
 using System.Collections.Generic;
 using E_commerce.Infrastructure.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using Pomelo.EntityFrameworkCore.MySql.Scaffolding.Internal;
 
 namespace E_commerce.Infrastructure.Data;
 
 public partial class ApplicationDbContext : DbContext
 {
+    public ApplicationDbContext()
+    {
+    }
+
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
@@ -26,6 +31,8 @@ public partial class ApplicationDbContext : DbContext
 
     public virtual DbSet<Comment> Comments { get; set; }
 
+    public virtual DbSet<Conversation> Conversations { get; set; }
+
     public virtual DbSet<Customer> Customers { get; set; }
 
     public virtual DbSet<CustomerRoleDetail> CustomerRoleDetails { get; set; }
@@ -42,11 +49,13 @@ public partial class ApplicationDbContext : DbContext
 
     public virtual DbSet<GoodsReceiptDetail> GoodsReceiptDetails { get; set; }
 
+    public virtual DbSet<GroupChat> GroupChats { get; set; }
+
     public virtual DbSet<Image> Images { get; set; }
 
     public virtual DbSet<LoginHistory> LoginHistories { get; set; }
 
-    public virtual DbSet<MessageBox> MessageBoxes { get; set; }
+    public virtual DbSet<Message> Messages { get; set; }
 
     public virtual DbSet<OauthProvider> OauthProviders { get; set; }
 
@@ -219,6 +228,8 @@ public partial class ApplicationDbContext : DbContext
 
             entity.ToTable("Cart");
 
+            entity.HasIndex(e => e.Time, "idx_time");
+
             entity.HasIndex(e => new { e.UserClient, e.ProductId }, "idx_user_client_product_id");
 
             entity.HasIndex(e => e.ProductId, "product_id");
@@ -359,11 +370,34 @@ public partial class ApplicationDbContext : DbContext
                 .HasConstraintName("Comments_ibfk_1");
         });
 
+        modelBuilder.Entity<Conversation>(entity =>
+        {
+            entity.HasKey(e => e.ConversationId).HasName("PRIMARY");
+
+            entity.ToTable("Conversation");
+
+            entity.HasIndex(e => e.UserId, "user_id");
+
+            entity.Property(e => e.ConversationId).HasColumnName("conversation_id");
+            entity.Property(e => e.ConversationName)
+                .HasMaxLength(100)
+                .HasColumnName("conversation_name");
+            entity.Property(e => e.UserId)
+                .HasMaxLength(18)
+                .HasColumnName("user_id");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Conversations)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("Conversation_ibfk_1");
+        });
+
         modelBuilder.Entity<Customer>(entity =>
         {
             entity.HasKey(e => e.UserClient).HasName("PRIMARY");
 
             entity.ToTable("Customer");
+
+            entity.HasIndex(e => e.UserClient, "idx_customer_user_client");
 
             entity.Property(e => e.UserClient)
                 .HasMaxLength(18)
@@ -378,11 +412,11 @@ public partial class ApplicationDbContext : DbContext
         {
             entity.HasNoKey();
 
+            entity.HasIndex(e => e.RoleId, "idx_customer_role_id");
+
+            entity.HasIndex(e => e.UserClient, "idx_customer_role_user");
+
             entity.HasIndex(e => e.RankId, "rank_id");
-
-            entity.HasIndex(e => e.RoleId, "role_id");
-
-            entity.HasIndex(e => e.UserClient, "user_client");
 
             entity.Property(e => e.RankId).HasColumnName("rank_id");
             entity.Property(e => e.RoleId).HasColumnName("role_id");
@@ -580,6 +614,34 @@ public partial class ApplicationDbContext : DbContext
                 .HasConstraintName("GoodsReceiptDetails_ibfk_2");
         });
 
+        modelBuilder.Entity<GroupChat>(entity =>
+        {
+            entity.HasKey(e => e.GroupId).HasName("PRIMARY");
+
+            entity.ToTable("GroupChat");
+
+            entity.HasIndex(e => e.UserId, "user_id");
+
+            entity.Property(e => e.GroupId).HasColumnName("group_id");
+            entity.Property(e => e.GroupName)
+                .HasMaxLength(100)
+                .HasColumnName("group_name");
+            entity.Property(e => e.GroupType)
+                .HasDefaultValueSql("'0'")
+                .HasColumnName("group_type");
+            entity.Property(e => e.JoinDate)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime")
+                .HasColumnName("join_date");
+            entity.Property(e => e.UserId)
+                .HasMaxLength(18)
+                .HasColumnName("user_id");
+
+            entity.HasOne(d => d.User).WithMany(p => p.GroupChats)
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("GroupChat_ibfk_1");
+        });
+
         modelBuilder.Entity<Image>(entity =>
         {
             entity.HasKey(e => e.ImgId).HasName("PRIMARY");
@@ -649,42 +711,32 @@ public partial class ApplicationDbContext : DbContext
                 .HasConstraintName("FK_LoginHistory_User");
         });
 
-        modelBuilder.Entity<MessageBox>(entity =>
+        modelBuilder.Entity<Message>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("MessageBox");
+            entity.HasKey(e => e.MessId).HasName("PRIMARY");
 
-            entity.HasIndex(e => e.UserClient, "user_client");
+            entity.ToTable("Message");
 
-            entity.HasIndex(e => e.UserEmp, "user_emp");
+            entity.HasIndex(e => e.ConversationId, "conversation_id");
 
-            entity.Property(e => e.Message)
-                .HasMaxLength(255)
-                .HasColumnName("message");
-            entity.Property(e => e.Status)
-                .HasDefaultValueSql("'0'")
-                .HasColumnName("_status");
-            entity.Property(e => e.Time)
+            entity.Property(e => e.MessId)
+                .HasMaxLength(18)
+                .HasColumnName("mess_id");
+            entity.Property(e => e.ConversationId).HasColumnName("conversation_id");
+            entity.Property(e => e.FromNumber)
+                .HasMaxLength(18)
+                .HasColumnName("from_number");
+            entity.Property(e => e.SendDate)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("datetime")
-                .HasColumnName("_time");
-            entity.Property(e => e.UserClient)
-                .HasMaxLength(18)
-                .HasColumnName("user_client");
-            entity.Property(e => e.UserEmp)
-                .HasMaxLength(18)
-                .HasColumnName("user_emp");
+                .HasColumnName("send_date");
+            entity.Property(e => e.Text)
+                .HasMaxLength(255)
+                .HasColumnName("text");
 
-            entity.HasOne(d => d.UserClientNavigation).WithMany()
-                .HasForeignKey(d => d.UserClient)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("MessageBox_ibfk_2");
-
-            entity.HasOne(d => d.UserEmpNavigation).WithMany()
-                .HasForeignKey(d => d.UserEmp)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("MessageBox_ibfk_1");
+            entity.HasOne(d => d.Conversation).WithMany(p => p.Messages)
+                .HasForeignKey(d => d.ConversationId)
+                .HasConstraintName("Message_ibfk_1");
         });
 
         modelBuilder.Entity<OauthProvider>(entity =>
@@ -901,8 +953,8 @@ public partial class ApplicationDbContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("rank_name");
             entity.Property(e => e.RatingPoint)
-                .HasColumnName("rating_point")
-                .HasDefaultValueSql("'0'");
+                .HasDefaultValueSql("'0'")
+                .HasColumnName("rating_point");
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>
@@ -1083,9 +1135,14 @@ public partial class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.UserEmp).HasName("PRIMARY");
 
+            entity.HasIndex(e => e.UserEmp, "idx_staff_user_emp");
+
             entity.Property(e => e.UserEmp)
                 .HasMaxLength(18)
                 .HasColumnName("user_emp");
+            entity.Property(e => e.AccountNumber)
+                .HasMaxLength(12)
+                .HasColumnName("account_number");
 
             entity.HasOne(d => d.UserEmpNavigation).WithOne(p => p.Staff)
                 .HasForeignKey<Staff>(d => d.UserEmp)
@@ -1096,9 +1153,9 @@ public partial class ApplicationDbContext : DbContext
         {
             entity.HasNoKey();
 
-            entity.HasIndex(e => e.RoleId, "role_id");
+            entity.HasIndex(e => e.RoleId, "idx_staff_role_id");
 
-            entity.HasIndex(e => e.UserEmp, "user_emp");
+            entity.HasIndex(e => e.UserEmp, "idx_staff_role_user");
 
             entity.Property(e => e.Describe)
                 .HasMaxLength(255)
@@ -1227,8 +1284,7 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.DateOfBirth).HasColumnName("date_of_birth");
             entity.Property(e => e.Email)
                 .HasMaxLength(100)
-                .HasColumnName("email")
-                .HasDefaultValueSql("'null'");
+                .HasColumnName("email");
             entity.Property(e => e.IsBlock)
                 .HasDefaultValueSql("'0'")
                 .HasColumnName("is_block");
@@ -1240,8 +1296,7 @@ public partial class ApplicationDbContext : DbContext
                 .HasColumnName("pass_word");
             entity.Property(e => e.PhoneNum)
                 .HasMaxLength(10)
-                .HasColumnName("phone_num")
-                .HasDefaultValueSql("'null'");
+                .HasColumnName("phone_num");
             entity.Property(e => e.UserName)
                 .HasMaxLength(100)
                 .HasColumnName("user_name");

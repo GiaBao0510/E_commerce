@@ -14,31 +14,15 @@ using AutoMapper.QueryableExtensions;
 
 namespace E_commerce.Infrastructure.repositories
 {
-    public class RoleRepository : IRoleRepository
+    public class RoleRepository : BaseRepository<Role>, IRoleRepository
     {
-        #region ===[private property]===
-        private readonly ILogger _logger;
-        private readonly DatabaseConnectionFactory _connectionFactory;
-        private readonly ApplicationDbContext _dbContext;
-        private readonly IMapper _mapper;
-        #endregion
-
         /// <summary>
         /// Khởi tạo repository với các dependencies cần thiết.
         /// </summary>
         public RoleRepository(
-            DatabaseConnectionFactory connectionFactory,
-            ApplicationDbContext dbContext, 
-            ILogger logger,
-            IMapper mapper
-        ){
-            _connectionFactory = connectionFactory 
-                ?? throw new ArgumentNullException(nameof(connectionFactory));
-            _dbContext = dbContext 
-                ?? throw new ArgumentNullException(nameof(dbContext));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
-        }
+            IUnitOfWork unitOfWork,
+            ILogger logger
+        ): base(unitOfWork, logger){ }
 
         /// <summary>
         /// Kiểm tra tính hợp lệ của Role
@@ -77,14 +61,16 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Lấy danh sách các Role
         /// </summary>
-        public async Task<IReadOnlyList<Role>> GetAllAsync(){
+        public override async Task<IReadOnlyList<Role>> GetAllAsync(){
             
             try{
-                //Sử dụng EF Core để lấy danh sách Role từ DbContext
-                return await _dbContext.Roles
-                    .AsNoTracking()
-                    .ProjectTo<Role>(_mapper.ConfigurationProvider)
-                    .ToListAsync();
+                
+                var query = RoleQueries.AllRole;
+                var result = await Connection.QueryAsync<Role>(
+                    query,
+                    transaction: Transaction
+                );
+                return result.ToList();
 
             }catch(DbUpdateException ex){
                 _logger.Error($"Database error when retrieving all roles", ex);
@@ -99,17 +85,18 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Lấy Role dựa trên ID
         /// </summary>
-        public async Task<Role> GetByIdAsync(string id){
+        public override async Task<Role> GetByIdAsync(string id){
             
             ValidateRoleId(id);
 
             try{
                 var roleId = ParseRoleId(id);
-                var result = await _dbContext.Roles
-                    .AsNoTracking()
-                    .Where(r => r.RoleId == roleId)
-                    .ProjectTo<Role>(_mapper.ConfigurationProvider)
-                    .FirstOrDefaultAsync();
+                var result = await Connection
+                    .QuerySingleOrDefaultAsync<Role>(
+                        RoleQueries.RoleByID,
+                        new {role_id = roleId },
+                        transaction: Transaction 
+                    );
                 
                 if(result == null)
                     throw new ResourceNotFoundException($"Không tìm thấy vai trò dựa trên ID: {id}");
@@ -130,15 +117,14 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Thêm một Role mới vào cơ sở dữ liệu
         /// </summary>
-        public async Task<string> AddAsync(Role entity){
+        public override async Task<string> AddAsync(Role entity){
             
             ValidateRole(entity);
         
             try{
-                using var connection = _connectionFactory.CreateConnection();
-                
-                var result = await connection.ExecuteAsync(
-                    RoleQueries.AddRole, entity);
+
+                var result = await Connection.ExecuteAsync(
+                    RoleQueries.AddRole, entity, transaction: Transaction);
 
                 if(result <= 0)
                     throw new DatabaseException("Lỗi. Không thể tạo vai trò");
@@ -165,15 +151,14 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Cập nhật vai trò trong cơ sở dữ liệu
         /// </summary>
-        public async Task<string> UpdateAsync(Role entity){
+        public override async Task<string> UpdateAsync(Role entity){
             
             ValidateRole(entity);
 
             try{
                 
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
-                    RoleQueries.UpdateRole, entity
+                var result = await Connection.ExecuteAsync(
+                    RoleQueries.UpdateRole, entity, transaction: Transaction
                 );
 
                 if(result <= 0)
@@ -198,15 +183,15 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Xóa vai trò dựa trên ID
         /// </summary>
-        public async Task<string> DeleteAsync(string id){
+        public override async Task<string> DeleteAsync(string id){
 
             ValidateRoleId(id);
 
             try{
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
+                var result = await Connection.ExecuteAsync(
                     RoleQueries.DeleteRole,
-                    new { role_id = id}
+                    new { role_id = id},
+                    transaction: Transaction
                 );
 
                 if(result <= 0)
@@ -236,7 +221,7 @@ namespace E_commerce.Infrastructure.repositories
             }
         }
 
-        public async Task<string> PatchAsync(string id, JsonPatchDocument<Role> patchDoc){
+        public override async Task<string> PatchAsync(string id, JsonPatchDocument<Role> patchDoc){
             
             ValidateRoleId(id);
 
@@ -254,9 +239,8 @@ namespace E_commerce.Infrastructure.repositories
                 patchDoc.ApplyTo(role);
 
                 //Cập nhât cơ sở dữ liệu
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
-                    RoleQueries.UpdateRole, role
+                var result = await Connection.ExecuteAsync(
+                    RoleQueries.UpdateRole, role, transaction: Transaction
                 );
 
                 if(result <= 0)
