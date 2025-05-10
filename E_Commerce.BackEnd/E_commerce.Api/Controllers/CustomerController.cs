@@ -24,8 +24,11 @@ namespace E_commerce.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<_Customer>>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAllcustomer(){
-            var result = await _unitOfWork.customers.GetAllAsync();
-            return Success(result, "Lấy danh sách khách hàng thành công");
+            return await ExecuteWithTransaction(
+                _unitOfWork,
+                async() => await _unitOfWork.customers.GetAllAsync(),
+                rank => Success(rank, "Lấy danh sách khách hàng thành công")
+            );
         }
 
         [HttpGet("{id}")]
@@ -34,20 +37,21 @@ namespace E_commerce.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetcustomerByID(string id){
-            var result = await _unitOfWork.customers.GetByIdAsync(id);
-            return Success(result, "Lấy thông tin khách hàng thành công");
+            return await ExecuteWithTransaction(
+                _unitOfWork,
+                async() => await _unitOfWork.customers.GetByIdAsync(id),
+                rank => Success(rank, "Lấy thông tin khách hàng thành công")
+            );
         }
 
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Createcustomer([FromBody] _Customer customer){
-            
-            var result = await _unitOfWork.customers.AddAsync(customer);
-            return Created(
-                result, 
-                $"/api/v{HttpContext.GetRequestedApiVersion().ToString()}/customer/{customer.user_client}",
-                "Thêm vai trò thành công"
+            return await ExecuteWithTransaction(
+                _unitOfWork,
+                async() => await _unitOfWork.customers.AddAsync(customer),
+                rank => Success(rank, "Thêm thông tin khách hàng thành công")
             );
         }
 
@@ -57,8 +61,11 @@ namespace E_commerce.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Updatecustomer([FromBody] _Customer customer){
-            var result = await _unitOfWork.customers.UpdateAsync(customer);
-            return Success(result, "Lấy cập nhật khách hàng thành công");
+            return await ExecuteWithTransaction(
+                _unitOfWork,
+                async() => await _unitOfWork.customers.UpdateAsync(customer),
+                rank => Success(rank, "Cập nhật thông tin khách hàng thành công")
+            );
         }
 
         [HttpDelete("{id}")]
@@ -68,8 +75,11 @@ namespace E_commerce.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Deletecustomer(string id){
-            var result = await _unitOfWork.customers.DeleteAsync(id);
-            return Success(result, "Xóa khách hàng thành công");
+            return await ExecuteWithTransaction(
+                _unitOfWork,
+                async() => await _unitOfWork.customers.DeleteAsync(id),
+                rank => Success(rank, "Xóa thông tin khách hàng thành công")
+            );
         }
 
         [HttpPatch("{id}")]
@@ -79,8 +89,11 @@ namespace E_commerce.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status409Conflict)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> PathUsser(string id, [FromBody] JsonPatchDocument<_Customer> customer){
-            var result = await _unitOfWork.customers.PatchAsync(id, customer);
-            return Success(result, "Cập nhật khách hàng thành công");
+            return await ExecuteWithTransaction(
+                _unitOfWork,
+                async() => await _unitOfWork.customers.PatchAsync(id, customer),
+                rank => Success(rank, "Cập nhật thông tin khách hàng thành công")
+            );
         }
 
         [HttpPut("/UpdateRank/{id}")]
@@ -88,8 +101,11 @@ namespace E_commerce.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateCustomerRank(string id,[FromQuery] int rank_id){
-            var result = await _unitOfWork.customers.UpdateCustomerRank(id, rank_id);
-            return Success(result, "Cập nhật hạng của khách hàng thành công");
+            return await ExecuteWithTransaction(
+                _unitOfWork,
+                async() => await _unitOfWork.customers.UpdateCustomerRank(id, rank_id),
+                rank => Success(rank, "Cập nhật hạng của khách hàng thành công")
+            );
         }
         #endregion
     }

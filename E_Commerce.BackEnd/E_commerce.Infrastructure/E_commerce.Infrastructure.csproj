@@ -19,7 +19,6 @@
     <PackageReference Include="log4net" Version="2.0.17" />
     <PackageReference Include="Microsoft.AspNetCore.JsonPatch" Version="8.0.8" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
-    <PackageReference Include="Isopoh.Cryptography.Argon2" Version="2.0.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.MicrosoftAccount" Version="8.0.8" />
@@ -27,6 +26,11 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIDConnect" Version="8.0.8" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.8" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
+    <PackageReference Include="CloudinaryDotNet" Version="1.26.2" />
+    <PackageReference Include="Mailjet.Api" Version="3.0.0" />
+    <PackageReference Include="RestSharp" Version="112.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.1.0" />
+    <PackageReference Include="Microsoft.AspNet.SignalR" Version="2.4.3" />
   </ItemGroup>
 
   <ItemGroup>

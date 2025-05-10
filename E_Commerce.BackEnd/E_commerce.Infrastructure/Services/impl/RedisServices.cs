@@ -28,18 +28,19 @@ namespace E_commerce.Infrastructure.Services.impl
                 var RedisHost = configuration["Database:Redis:Host"];
                 var redisPassword = configuration["Database:Redis:Password"];
 
-                _logger.Info($"Đang kết nối với Redis tại: {RedisHost}");
+                _logger.Info($"Khởi tạo kết nối với Redis tại: {RedisHost}");
 
                 //Thiết lập cấu hình
                 var option = new ConfigurationOptions{
-                    AbortOnConnectFail = false,
-                    ConnectTimeout = 5000,
-                    SyncTimeout = 5000,
-                    ConnectRetry = 3,
-                    KeepAlive = 60,
-                    ReconnectRetryPolicy = new LinearRetry(1000),
-                    AllowAdmin = true,
-                    Ssl = false         // Tắt SSL nếu bạn đang kiểm thử cục bộ
+                    AbortOnConnectFail = false,                  //Không ngừng cố gắng kết nối lại khi không thành công
+                    ConnectTimeout = 10000,                       //Thời gian chờ kết nối được tính bằng giây (nếu không được thì ném lỗi)
+                    SyncTimeout = 10000,                          //Thời gian tối đa (tính bằng miliseconds) cho các lệnh đồng bộ (blocking) khi gửi đến redis chờ phản hồi
+                    AsyncTimeout = 10000,                        // Thời gian tối đa (tính bằng miliseconds) cho các lệnh không đồng bộ (non-blocking) khi gửi đến redis chờ phản hồi
+                    ConnectRetry = 5,                            //Số lần thử lại kết nối nếu  lần đầu thất bại
+                    KeepAlive = 60,                              //Redis sẽ gửi ping signal sau mỗi 60 giây để luôn gữi kết nối luôn mở
+                    ReconnectRetryPolicy = new ExponentialRetry(1000,10000),//Tự động kết nối lại sau mỗi 1 giây nếu không thành công
+                    AllowAdmin = true,                           //Cho phép Client thực hiện gửi các lệnh quản trị Redis
+                    Ssl = false                                  //Dùng SSL hay không (true/false) để mã hóa kết nối với redis. (Nếu Redis nằm trên cục bộ thì nên dặt false)
                 };
 
                 //Thêm end point
@@ -48,10 +49,12 @@ namespace E_commerce.Infrastructure.Services.impl
                 //Thêm password
                 option.Password = redisPassword;
 
-                 _redis = ConnectionMultiplexer.Connect(option);
-                 _db = _redis.GetDatabase();
+                _logger.Info($"Thử kết nối với Redis tại: {RedisHost}....");
+                _redis = ConnectionMultiplexer.Connect(option);
+                _db = _redis.GetDatabase();
+                _logger.Info($"Thiết lập kết nối với Redis thành công tại: {RedisHost}");
             }
-            catch(Exception ex){
+            catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi khởi tạo kết nối Redis: {ex.Message}", ex);
                 throw;
             }
@@ -64,10 +67,15 @@ namespace E_commerce.Infrastructure.Services.impl
                 // Nếu không kết nối được thì thực hiện kết nối lại
                 if(! _redis.IsConnected)    
                     await _redis.GetDatabase().PingAsync();
+                
+                string data;
+                if(value is string str)
+                    data = str;
+                else
+                    data = JsonSerializer.Serialize(value);
 
-                var serializedValue = JsonSerializer.Serialize(value);
-                return await _db.StringSetAsync(key, serializedValue);
-            }catch(Exception ex){
+                return await _db.StringSetAsync(key, data);
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi đặt giá trị tại bộ nhớ đệm: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -79,10 +87,15 @@ namespace E_commerce.Infrastructure.Services.impl
                 // Nếu không kết nối được thì thực hiện kết nối lại
                 if(! _redis.IsConnected)    
                     await _redis.GetDatabase().PingAsync();
+                
+                string data;
+                if(value is string str)
+                    data = str;
+                else
+                    data = JsonSerializer.Serialize(value);
 
-                var serializedValue = JsonSerializer.Serialize(value);
-                return await _db.StringSetAsync(key, serializedValue, expiration);
-            }catch(Exception ex){
+                return await _db.StringSetAsync(key, data, expiration);
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi đặt giá trị tại bộ nhớ đệm: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -91,17 +104,23 @@ namespace E_commerce.Infrastructure.Services.impl
         public async Task<T> Get<T>(string key){
             try{
                 var value = await _db.StringGetAsync(key);
-                return value.IsNullOrEmpty ? default : JsonSerializer.Deserialize<T>(value);
-            }catch(Exception ex){
+                if(value.IsNullOrEmpty) return default;
+
+                if(typeof(T) == typeof(string))
+                    return (T)(object)value.ToString(); // Trả về giá trị dưới dạng chuỗi
+                
+                return JsonSerializer.Deserialize<T>(value);
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi truy xuất tại bộ nhớ đệm: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
         }
+        
         public async Task<bool> Remove(string key){
             try{
                 
                 return await _db.KeyDeleteAsync(key);
-            }catch(Exception ex){
+            }catch(Exception ex)  when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi truy xuất tại bộ nhớ đệm: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -115,7 +134,7 @@ namespace E_commerce.Infrastructure.Services.impl
             try{
                 if(expiration == null) return false;
                 return await _db.KeyExpireAsync(key, expiration);
-            }catch(Exception ex){
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi truy xuất tại bộ nhớ đệm: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -125,9 +144,8 @@ namespace E_commerce.Infrastructure.Services.impl
         #region ====[List]====
         public async Task<bool> ListLeftPush<T>(string key, T value){
             try{
-                var serializedValue = JsonSerializer.Serialize(value);
-                return await _db.ListLeftPushAsync(key, serializedValue) > 0;
-            }catch(Exception ex){
+                return await _db.ListLeftPushAsync(key, value.ToString()) > 0;
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi thêm phần tử vào danh sách ở bên trái: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -135,9 +153,8 @@ namespace E_commerce.Infrastructure.Services.impl
 
         public async Task<bool> ListRightPush<T>(string key, T value){
             try{
-                var serializedValue = JsonSerializer.Serialize(value);
-                return await _db.ListRightPushAsync(key, serializedValue) > 0;
-            }catch(Exception ex){
+                return await _db.ListRightPushAsync(key, value.ToString()) > 0;
+            }catch(Exception ex)  when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi thêm phần tử vào danh sách ở bên phải: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -150,7 +167,7 @@ namespace E_commerce.Infrastructure.Services.impl
                 if(value.IsNullOrEmpty) return false;
                 return await _db.ListRemoveAsync(key, value) > 0;
 
-            }catch(Exception ex){
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi Xóa phần tử vào danh sách ở bên phải: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -163,7 +180,7 @@ namespace E_commerce.Infrastructure.Services.impl
                 if(value.IsNullOrEmpty) return false;
                 return await _db.ListRemoveAsync(key, value) > 0;
 
-            }catch(Exception ex){
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi Xóa phần tử vào danh sách ở bên phải: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -171,9 +188,8 @@ namespace E_commerce.Infrastructure.Services.impl
 
         public async Task<bool> ListRemove<T>(string key, T value){
             try{
-                var serializedValue = JsonSerializer.Serialize(value);
-                return await _db.ListRemoveAsync(key, serializedValue) > 0;
-            }catch(Exception ex){
+                return await _db.ListRemoveAsync(key, value.ToString()) > 0;
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi xóa phần tử trong danh sách: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -195,7 +211,7 @@ namespace E_commerce.Infrastructure.Services.impl
                 }
 
                 return result;
-            }catch(Exception ex){
+            }catch(Exception ex) when(!(ex is ECommerceException)){
                 _logger.Error($"Lỗi khi lấy danh sách theo phạm vi: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
@@ -203,7 +219,7 @@ namespace E_commerce.Infrastructure.Services.impl
         public async Task<int> ListLength(string key){
             try{
                 return (int) await _db.ListLengthAsync(key);
-            }catch(Exception ex){
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi lấy độ dài danh sách: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
@@ -213,9 +229,8 @@ namespace E_commerce.Infrastructure.Services.impl
         #region ====[SortedSet]====
         public async Task<bool> SortedSetAdd<T>(string key, double score, T value){
             try{
-                var serializedValue = JsonSerializer.Serialize(value);
-                return await _db.SortedSetAddAsync(key, serializedValue, score);
-            }catch(Exception ex){
+                return await _db.SortedSetAddAsync(key, value.ToString(), score);
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi thêm phần tử vào trong SortedSet: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
@@ -223,9 +238,8 @@ namespace E_commerce.Infrastructure.Services.impl
 
         public async Task<bool> SortedSetRemove<T>(string key, T value){
             try{
-                var serializedValue = JsonSerializer.Serialize(value);
-                return await _db.SortedSetRemoveAsync(key, serializedValue);
-            }catch(Exception ex){
+                return await _db.SortedSetRemoveAsync(key, value.ToString());
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi xóa phần tử vào trong SortedSet: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
@@ -234,7 +248,7 @@ namespace E_commerce.Infrastructure.Services.impl
         public async Task<int> SortedSetLength(string key){
             try{
                 return (int) await _db.SortedSetLengthAsync(key);
-            }catch(Exception ex){
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi lấy độ dài của SortedSet: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
@@ -257,7 +271,7 @@ namespace E_commerce.Infrastructure.Services.impl
                 }
 
                 return result;
-            }catch(Exception ex){
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi lấy danh sách về Rank theo phạm vi của SortedSet: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
@@ -280,7 +294,7 @@ namespace E_commerce.Infrastructure.Services.impl
                 }
 
                 return result;
-            }catch(Exception ex){
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi lấy danh sách về score theo phạm vi của SortedSet: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
@@ -289,7 +303,7 @@ namespace E_commerce.Infrastructure.Services.impl
         public async Task<bool> SortedSetRemoveScoreByRange(string key, double start, double end){
             try{
                 return await _db.SortedSetRemoveRangeByScoreAsync(key, start, end) > 0;
-            }catch(Exception ex){
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi xóa phần tử vào trong SortedSet theo phạm vi: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
@@ -301,8 +315,8 @@ namespace E_commerce.Infrastructure.Services.impl
                 if(score.HasValue) 
                     return score.Value;
                 else
-                    throw new E_commerce.Core.Exceptions.InvalidOperationException("Không tìm thấy giá trị trong SortedSet.");
-            }catch(Exception ex){
+                    throw new Core.Exceptions.InvalidOperationException("Không tìm thấy giá trị trong SortedSet.");
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi lấy danh sách theo phạm vi của SortedSet: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -310,10 +324,23 @@ namespace E_commerce.Infrastructure.Services.impl
 
         public async Task<bool> SortedSetUpdateScore<T>(string key, double score, T value){
             try{
-                var serializedValue = JsonSerializer.Serialize(value);
-                return await _db.SortedSetAddAsync(key, serializedValue, score);
-            }catch(Exception ex){
+                return await _db.SortedSetAddAsync(key, value.ToString(), score);
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
                 _logger.Error($"Lỗi khi thêm phần tử vào trong SortedSet: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
+            } 
+        }
+
+        public async Task<bool> CheckValueExistsInSortedSet(string key, string value){
+            try{
+                var exists = await _db.SortedSetScoreAsync(key, value);
+                
+                if(exists.HasValue)
+                    return true;
+                    
+                return false;
+            }catch(Exception ex)  when (!(ex is ECommerceException) ){
+                _logger.Error($"Lỗi khi kiểm tra value tồn tại trong SortedSet: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             } 
         }

@@ -1,7 +1,6 @@
 using MySql.Data.MySqlClient;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.EntityFrameworkCore;
-using Isopoh.Cryptography.Argon2;
 using E_commerce.Core.Exceptions;
 using E_commerce.Application.Application;
 using E_commerce.Core.Entities;
@@ -9,18 +8,15 @@ using E_commerce.Infrastructure.Data;
 using E_commerce.Infrastructure.Constants;
 using E_commerce.SQL.Queries;
 using Dapper;
+using E_commerce.Infrastructure.Utils;
 
 namespace E_commerce.Infrastructure.repositories
 {
-    public class CustomerRepository: ICustomerRepository
+    public class CustomerRepository: BaseRepository<_Customer>, ICustomerRepository
     {
         #region ======[Private property]=====
-        private readonly ILogger _logger;
-        private readonly ICodeGenerator _codeGenerator;
         private readonly IUserRepository _userRepository;
-        private readonly ICustomFormat _customFormat;
         private readonly ApplicationDbContext _dbContext;
-        private readonly DatabaseConnectionFactory _connectionFactory;
         private readonly IRankRepository _rankRepository;
         #endregion
 
@@ -29,19 +25,13 @@ namespace E_commerce.Infrastructure.repositories
         /// </summary>
         public CustomerRepository(
             ILogger logger,
-            ICodeGenerator codeGenerator,
-            DatabaseConnectionFactory connectionFactory,
+            IUnitOfWork unitOfWork,
             ApplicationDbContext dbContext,
             IUserRepository userRepository,
-            ICustomFormat customFormat,
             IRankRepository rankRepository
-        ){
-            _logger = logger;
-            _codeGenerator = codeGenerator;
-            _connectionFactory = connectionFactory;
+        ):base(unitOfWork, logger){
             _dbContext = dbContext;
             _userRepository = userRepository;
-            _customFormat = customFormat;
             _rankRepository = rankRepository;
         }
 
@@ -74,14 +64,15 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Lấy danh sách người tiêu dùng
         /// </summary>
-        public async Task<IReadOnlyList<_Customer>> GetAllAsync(){
+        public override async Task<IReadOnlyList<_Customer>> GetAllAsync(){
             try
             {
-                using(var connection = _connectionFactory.CreateConnection()){
-                    var query = CustomerQueries.AllCustomer;
-                    var users = await connection.QueryAsync<_Customer>(query);
-                    return users.ToList();
-                }
+                var query = CustomerQueries.AllCustomer;
+                var users = await Connection.QueryAsync<_Customer>(
+                    query,
+                    transaction: Transaction
+                );
+                return users.ToList();
             }catch(DbUpdateException ex){
                 _logger.Error($"Database error when retrieving all user", ex);
                 throw new DatabaseException("Lỗi khi truy vấn danh sách người tiêu dùng");
@@ -95,16 +86,16 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Lấy thông tin khách hàng dựa trên ID
         /// </summary>
-        public async Task<_Customer> GetByIdAsync(string id){
+        public override async Task<_Customer> GetByIdAsync(string id){
             
             _userRepository.ValidateUserId(id);
 
             try
             {
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.QueryFirstOrDefaultAsync<_Customer>(
+                var result = await Connection.QueryFirstOrDefaultAsync<_Customer>(
                     CustomerQueries.CustomerByID,
-                    new { user_client = id }
+                    new { user_client = id },
+                    transaction: Transaction
                 );
                 
                 if(result == null) 
@@ -125,29 +116,23 @@ namespace E_commerce.Infrastructure.repositories
          /// <summary>
         /// Thêm một User mới vào cơ sở dữ liệu
         /// </summary>
-        public async Task<string> AddAsync(_Customer user)
-        {
-            using var connection = _connectionFactory.CreateConnection();
-                
-            using var transaction =  connection.BeginTransaction();
+        public override async Task<string> AddAsync(_Customer user)
+        {    
             try{
                 
                 //thêm thông tin người dùng trước
                 var Uid = await _userRepository.AddAsync(user);
 
                 //Thêm thông tin khách hàng sau
-                await connection.ExecuteAsync(
+                await Connection.ExecuteAsync(
                     CustomerQueries.AddCustomer + CustomerQueries.AddBasicCustomerInformation,
                     new { user_client = Uid },
-                    transaction
+                    transaction: Transaction
                 );
-
-                transaction.Commit();
                 return Uid;
 
             }catch(MySqlException ex){
                 
-                transaction.Rollback();
                 if(ex.Number == MysqlExceptionsConstants.MYSQL_DUPLICATE_KEY_ERROR){
                     _logger.Error($"Duplicate key error when adding user: {ex.Message}", ex);
                     throw new ValidationException($"Lỗi trùng lặp dữ liệu: {ex.Message}");
@@ -155,7 +140,6 @@ namespace E_commerce.Infrastructure.repositories
                 throw new DetailsOfTheMysqlException(ex);
             }
             catch(Exception ex) when (!(ex is ECommerceException)){
-                transaction.Rollback();
                 _logger.Error($"Error adding role: {ex.Message} \n Details: {ex.Message} ", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -164,7 +148,7 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Cập nhật thông tin từ Khách hàng mới vào cơ sở dữ liệu
         /// </summary>
-        public async Task<string> UpdateAsync(_Customer entity){
+        public override async Task<string> UpdateAsync(_Customer entity){
             _userRepository.ValidateUser(entity); 
             return await _userRepository.UpdateAsync(entity);
         }
@@ -172,14 +156,14 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Xóa vai trò dựa trên ID
         /// </summary>
-        public async Task<string> DeleteAsync(string id){
+        public override async Task<string> DeleteAsync(string id){
             return await _userRepository.DeleteAsync(id);
         } 
 
         /// <summary>
         /// Cập nhật User dựa trên ID
         /// </summary>
-        public async Task<string> PatchAsync(string id, JsonPatchDocument<_Customer> patchDoc){
+        public override async Task<string> PatchAsync(string id, JsonPatchDocument<_Customer> patchDoc){
             
             if(patchDoc == null)
                 throw new ValidationException("JsonPatchDocument không được bỏ trống");
@@ -194,12 +178,12 @@ namespace E_commerce.Infrastructure.repositories
                 //Áp dụng các thay đổi
                 patchDoc.ApplyTo(customer);
 
-                customer.date_of_birth = _customFormat.FormatDateOfBirth(customer.date_of_birth);
+                customer.date_of_birth = CustomFormat.FormatDateOfBirth(customer.date_of_birth);
 
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
+                var result = await Connection.ExecuteAsync(
                     CustomerQueries.PatchCustomer,
-                    customer
+                    customer,
+                    transaction: Transaction
                 );
 
                 if(result <= 0)
@@ -239,10 +223,10 @@ namespace E_commerce.Infrastructure.repositories
                 if(rank == null)
                     throw new ResourceNotFoundException($"Không tìm thấy rank với ID: {rank_id}");
 
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
+                var result = await Connection.ExecuteAsync(
                     CustomerQueries.UpdateCustomerRank,
-                    new { user_client = id, rank_id = rank_id }
+                    new { user_client = id, rank_id = rank_id },
+                    transaction: Transaction
                 );
 
                 if(result <= 0)

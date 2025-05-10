@@ -12,27 +12,23 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using E_commerce.Api.Authentication;
+using Microsoft.AspNetCore.Http.Features;
+using E_commerce.Api.Hubs;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
 //Cấu hình kerstrel để lắng nghe trên nhiều cổng
 builder.WebHost.ConfigureKestrel(options => {
-    
-    int  port_1 = builder.Configuration.GetValue<int>("Kestrel:EndPoints:Http1:Port");
-    int  port_2 = builder.Configuration.GetValue<int>("Kestrel:EndPoints:Http2:Port");
-    int  port_3 = builder.Configuration.GetValue<int>("Kestrel:EndPoints:Http3:Port");
+    //Http Endpoint
+    var httpPort = builder.Configuration.GetValue<int>("Ports:Http", 5126);
+    var httpsPort = builder.Configuration.GetValue<int>("Ports:Https", 5127);
 
-    options.ListenLocalhost(port_1);
-
-    //HTTPS
-    options.ListenLocalhost(port_2, listenOpt =>{
-        listenOpt.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2;
-        listenOpt.UseHttps();
-    });
-
-    // Http/2
-    options.ListenLocalhost(port_3, listenOpt=>{
-        listenOpt.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2;
+    //HTTP/1.1 và HTTP/2
+    options.ListenLocalhost(httpPort, listenOption =>{
+        listenOption.Protocols = 
+            Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
     });
 });
 
@@ -53,16 +49,20 @@ builder.Services.AddEndpointsApiExplorer();
 #region ====[CORS]====
 //Configure CORS
 builder.Services.AddCors(options => {
-    options.AddPolicy("AllowedOrigin", policy =>{
-        policy.WithOrigins(
-            "http://localhost:3000",    //React (FrontEnd)
-            "http://localhost:4200",    //Angular (FrontEnd)
-            "http://localhost:8080",    //Vue (FrontEnd)
-            "http://localhost:3001"    //Next.js (FrontEnd)
-        )
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials();
+    var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ??
+        new []{
+            "http://localhost:3000",        //React (FrontEnd)
+            "https://localhost:3000" ,
+            "http://localhost:4200",        //Angular (FrontEnd)
+            "http://localhost:8080",        //Vue (FrontEnd)
+            "http://localhost:3001",        //Next.js (FrontEnd)
+            "http://localhost:5129"         //Swagger
+        };
+    options.AddPolicy("AllowedOrigin", policy => {
+        policy.WithOrigins(corsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 #endregion
@@ -100,9 +100,13 @@ builder.Services.AddStackExchangeRedisCache(options => {
     var redisHost= builder.Configuration["Database:Redis:Host"];
     var redisPassword = builder.Configuration["Database:Redis:Password"];
 
-    options.Configuration = $"{redisHost}, {redisPassword}";
+    options.Configuration = $"{redisHost}, password={redisPassword}";
     options.InstanceName = "SampleInstance";
 }); 
+#endregion
+
+#region =====[SignalR]
+builder.Services.AddSignalR();
 #endregion
 
 #region =====[API - Version]====
@@ -144,14 +148,14 @@ builder.Services.AddAuthentication(options => {
         ),
 
         //Xử lý sự kiện khi token không hợp lệ
-        ClockSkew = TimeSpan.Zero, // Thời gian chênh lệch giữa server và client
+        ClockSkew = TimeSpan.FromSeconds(30), // Thời gian chênh lệch giữa server và client
     };
 
     //Thêm xử lý sự kiện cho JWT
     options.Events = new JwtBearerEvents{
         OnAuthenticationFailed = context => {
             if(context.Exception.GetType() == typeof(SecurityTokenExpiredException))
-                context.Response.Headers.Add("Token-Expired", "true"); //Thêm header vào response nếu token đã hết hạn
+                context.Response.Headers.Append("Token-Expired", "true"); //Thêm header vào response nếu token đã hết hạn
             
             return Task.CompletedTask;
         },
@@ -169,14 +173,15 @@ builder.Services.AddAuthentication(options => {
 .AddCookie(options => {
         options.Cookie.Name = "E_commerce.Cookie";                  //Tên của cookie để phân biệt với các cookie khác
         options.Cookie.HttpOnly = true;                             // True: nghĩa là JS không thể truy cập vào cookie (bảo mật hơn)
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;    // Always: Nghĩa là cookie chỉ được gửi qua HTTPS (Bảo mật hơn)
-        options.Cookie.SameSite = SameSiteMode.Strict;              // Giúp ngăn chặn CSRF bằng cách chỉ gửi cookie khi request xuất phát từ cùng một trang web
+        options.Cookie.SecurePolicy = builder.Environment.IsProduction()
+            ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;    // Always: Nghĩa là cookie chỉ được gửi qua HTTPS (Bảo mật hơn)
+        options.Cookie.SameSite = SameSiteMode.Lax;                 // Thuộc tính SameSite giúp ngăn chặn CSRF (Cross-Site Request Forgery)
         options.ExpireTimeSpan = TimeSpan.FromHours(24);            // Thời gian sống của cookie
         options.SlidingExpiration = true;                           // True: nghĩa là mỗi lần người dùng truy cập, thời hạn của cookie sẽ được gia hạn
         
-        options.LoginPath = "auth/login";   
-        options.LogoutPath = "auth/logout";                                   //Trang sẽ chuyển huong khi người dùng chưa đăng nhập
-        options.AccessDeniedPath = "auth/forbidden";                            //Trang sẽ chuyển hướng khi người dùng không có quyền truy cập vào tài nguyên
+        options.LoginPath = "/auth/login";   
+        options.LogoutPath = "/auth/logout";                                   //Trang sẽ chuyển huong khi người dùng chưa đăng nhập
+        options.AccessDeniedPath = "/auth/forbidden";                            //Trang sẽ chuyển hướng khi người dùng không có quyền truy cập vào tài nguyên
 })
 .AddGoogle(GoogleDefaults.AuthenticationScheme, options => {
     options.ClientId = builder.Configuration.GetSection("Authentication:Google:ClientId").Value;
@@ -191,22 +196,7 @@ builder.Services.AddAuthentication(options => {
     options.SaveTokens = true;
 
     //Callbacks URL cho google OAuth
-    options.CallbackPath = "auth/google-login-callback"; //URL sẽ được gọi lại sau khi người dùng đăng nhập thành công
-
-    //Thêm xử lý sự kiện cho Google
-    // options.Events = new OAuthEvents{
-    //     OnCreatingTicket = context => {
-    //         //Lấy thông tin người dùng từ Google
-    //         var accessToken = context.AccessToken;
-    //         var idToken = context.ProtocolMessage.IdToken;
-            
-    //         //Lưu thông tin người dùng vào claims
-    //         context.Identity.AddClaim(new Claim("access_token", accessToken));
-    //         context.Identity.AddClaim(new Claim("id_token", idToken));
-            
-    //         return Task.CompletedTask;
-    //     }
-    // }
+    options.CallbackPath = "/auth/google-login-callback"; //URL sẽ được gọi lại sau khi người dùng đăng nhập thành công
 });
 #endregion
 
@@ -217,9 +207,15 @@ builder.Services.AddHealthChecks();
 #region  ====[Middler ware]====
 var app = builder.Build();
 
+// Khởi động connection pool khi ứng dụng bắt đầu
+{
+    var connectionFactory = app.Services.GetRequiredService<DatabaseConnectionFactory>();
+    connectionFactory.WarmupConnectionPool(); 
+}
+
 // Middleware pipeline order
 // 1. Exception Handling & 
-app.UseCustomExceptionHandler();
+app.UseCustomExceptionHandler(); 
 
 //2. Development Enviroment
 if (app.Environment.IsDevelopment())
@@ -243,22 +239,18 @@ app.UseRouting();
 //6. CORS
 app.UseCors("AllowedOrigin");
 
-//7. Authentication & Authorization 
+//7. Authentication & Authorization
 app.UseAuthentication();
+app.UseTokenWhitelistValidation(); //Xác thực token có trong whitelist hay không 
 app.UseAuthorization();
 
 //8. Custome Middleware. Here
 
 
 //9. Endpoints
-app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHub<ChatHub>("/chat-hub"); //Map SignalR hub
+app.MapControllers(); //Map all controllers
+app.MapHealthChecks("/health"); //Map health check endpoint
 
 app.Run();
-
-// Khởi động connection pool khi ứng dụng bắt đầu
-app.Lifetime.ApplicationStarted.Register(() =>{
-    var connectionFactory = app.Services.GetRequiredService<DatabaseConnectionFactory>();
-    connectionFactory.WarmupConnectionPool();
-});
 #endregion

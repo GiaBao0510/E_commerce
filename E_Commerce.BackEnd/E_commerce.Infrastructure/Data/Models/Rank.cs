@@ -9,7 +9,7 @@ public partial class Rank
 
     public string RankName { get; set; } = null!;
 
-    public int RatingPoint { get; set; }
+    public int? RatingPoint { get; set; }
 
     public string? Describe { get; set; }
 }

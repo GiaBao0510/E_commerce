@@ -150,7 +150,44 @@ namespace E_commerce.Api.Middleware
            };
 
             //Xử lý các loại lỗi khác nhau
-            switch(ex){
+            switch(ex)
+            {
+                case Core.Exceptions.InvalidOperationException invalidEx:
+                    //Xử lý lỗi không hợp lệ
+                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    res.Message = invalidEx.Message;
+                    res.Error = new ErrorDetails{
+                        Code = "INVALID_OPERATION",
+                        Details = invalidEx.Message
+                    };
+                    res.Meta.StatusCode = 400;
+                    _logger.LogWarning(ex, $"Invalid operation: {invalidEx.Message}"); 
+                    break;
+
+                case TooManyRequestsException tooManyEx:
+                    //Xử lý lỗi quá nhiều yêu cầu
+                    context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
+                    res.Message = "Quá nhiều yêu cầu trong thời gian ngắn";
+                    res.Error = new ErrorDetails{
+                        Code = "TOO_MANY_REQUESTS",
+                        Details = "Vui lòng thử lại sau"
+                    };
+                    res.Meta.StatusCode = 429;
+                    _logger.LogWarning(ex, $"Too many requests: {tooManyEx.Message}"); 
+                    break;
+
+                //case 401
+                case UnauthorizedAccessException unauthorized:
+                    context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                    res.Message = unauthorized.Message;
+                    res.Error = new ErrorDetails{
+                        Code = "UNAUTHORIZED",
+                        Details = "Không có quyền truy cập"
+                    };
+                    res.Meta.StatusCode = (int)HttpStatusCode.Unauthorized;
+                    _logger.LogWarning(ex, $"Unauthorized access: {unauthorized.Message}");
+                    break; 
+
                 case ECommerceException appEx:
                     //Xử lý exception từ framework
                     context.Response.StatusCode = appEx.StatusCode;
@@ -227,5 +264,5 @@ namespace E_commerce.Api.Middleware
             return builder.UseMiddleware<ExceptionHandlingMiddleware>();
         }
     }
-    #endregion
+    #endregion 
 }

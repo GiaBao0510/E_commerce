@@ -27,29 +27,26 @@ namespace E_commerce.Infrastructure.Services.impl
             while(!stoppingToken.IsCancellationRequested){
                 try
                 {
-                    await CleanUpExpiredTokens();
-                    _logger.Info("Đã xóa các token hết hạn trong white-list và black-list.");
+                    if(await CleanUpExpiredTokens() == true)
+                        _logger.Info("Đã xóa các token hết hạn trong white-list.");
                 }
                 catch(Exception ex){
-                    _logger.Error($"Lỗi khi xóa các token hết hạn trong white-list và black-list. Message: {ex.Message}");
+                    _logger.Error($"Lỗi khi xóa các token hết hạn trong white-list. Message: {ex.Message}");
                 }
 
                 await Task.Delay(_interval, stoppingToken);
             }
         }
 
-        private async Task CleanUpExpiredTokens(){
+        private async Task<bool> CleanUpExpiredTokens(){
 
             //Sử dụng scope để đảm bảo dissposing các service đúng cách
             using(var scope = _serviceProvider.CreateScope()){
 
-                var tokenListService = scope.ServiceProvider.GetRequiredService<ITokenListService>();
+                var tokenListService = scope.ServiceProvider.GetRequiredService<ITokenListManagementService>();
 
                 //Xóa các token hết hạn trong white-list
-                await tokenListService.DeleteExpiredTokens("white_list");
-
-                //Xóa các token hết hạn trong black-list
-                await tokenListService.DeleteExpiredTokens("black_list");
+                return await tokenListService.DeleteExpiredTokens("white_list");
             }
         }
 

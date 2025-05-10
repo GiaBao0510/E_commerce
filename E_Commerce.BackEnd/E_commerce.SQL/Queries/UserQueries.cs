@@ -52,5 +52,29 @@ namespace E_commerce.SQL.Queries
         //Tìm thông tin người dùng thông qua email
         public static string FindUserByEmail =>
             "SELECT * FROM `User` WHERE email = @email;";
+        
+        //Tìm kiếm thông tin người dùng thông qua phone_num
+        public static string FindUserByPhoneNum =>
+            "SELECT * FROM `User` WHERE phone_num = @phone_num;";
+
+        //Tạo người dùng hoặc thêm người dùng mới dựa trên truy xuất email từ người dùng
+        public static string GetOrCreateUserByEmail => 
+            @"START TRANSACTION;
+            INSERT INTO `User` (user_id, user_name, date_of_birth, address, phone_num, email, pass_word, is_block, is_delete)
+            SELECT UUID_SHORT(), @user_name, NULL, NULL, NULL, @email, NULL, 0, 0
+            WHERE NOT EXISTS (
+               SELECT 1 FROM `User` WHERE email = @email
+            );
+            SELECT * FROM `User` WHERE email = @email;
+            COMMIT;";
+
+        //Kiểm tra email người dùng có tồn tại hay không
+        public static string FindByUserEmail =>
+            "SELECT * FROM `User` WHERE email = @email;";
+
+        public static string GetBasicUserInfo =>
+            @"SELECT u.user_id, u.user_name, u.email, u.phone_num
+            FROM `User` u 
+            WHERE u.user_id = @user_id;";
     }
 }

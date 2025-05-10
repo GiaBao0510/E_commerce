@@ -7,26 +7,18 @@ using E_commerce.Infrastructure.Constants;
 using E_commerce.Application.Application;
 using E_commerce.Core.Entities;
 using E_commerce.SQL.Queries;
-using E_commerce.Infrastructure.Data;
-using AutoMapper;
 
 namespace E_commerce.Infrastructure.repositories
 {
-    public class RankRepository: IRankRepository
+    public class RankRepository:  BaseRepository<_Rank>, IRankRepository
     {
-        #region ===[private property]===
-        private readonly ILogger _logger;
-        private readonly DatabaseConnectionFactory _connectionFactory;
-        #endregion
 
         ///<summary>
         /// Constructor
         /// </summary>
-        public RankRepository(ILogger logger, DatabaseConnectionFactory connectionFactory, IMapper mapper)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
-        }
+        public RankRepository(ILogger logger, IUnitOfWork unitOfWork)
+            :base(unitOfWork, logger)
+        { }
 
         /// <summary>
         /// Kiểm tra tính hợp lệ của RANK
@@ -65,13 +57,11 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Lấy danh sách các rank
         /// </summary>
-        public async Task<IReadOnlyList<_Rank>> GetAllAsync(){
+        public override async Task<IReadOnlyList<_Rank>> GetAllAsync(){
             try{
-                using(var connection = _connectionFactory.CreateConnection()){
-                    var query = RankQueries.AllRanks;
-                    var ranks = await connection.QueryAsync<_Rank>(query);
-                    return ranks.ToList();
-                }
+                var query = RankQueries.AllRanks;
+                var ranks = await Connection.QueryAsync<_Rank>(query, transaction: Transaction);
+                return ranks.ToList();
             }
             catch(Exception ex){
                 _logger.Error("Lỗi khi lấy danh sách RANKS.");
@@ -82,26 +72,25 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Lấy rank dựa trên ID
         /// </summary>
-        public async Task<_Rank> GetByIdAsync(string id){
+        public override async Task<_Rank> GetByIdAsync(string id){
             
             ValidateRankId(id);
 
             try
             {
                 var Rank_id = ParseRankId(id);
-                using(var connection = _connectionFactory.CreateConnection()){
+                var rank = await Connection
+                    .QueryFirstOrDefaultAsync<_Rank>(
+                        RankQueries.FindByID, 
+                        new { rank_id = Rank_id},
+                        transaction: Transaction
+                    );
+                
+                if(rank == null)
+                    throw new ResourceNotFoundException($"Không tìm thấy RANK với ID: {id}");
 
-                    var rank = await connection
-                        .QueryFirstOrDefaultAsync<_Rank>(
-                            RankQueries.FindByID, 
-                            new { rank_id = Rank_id}
-                        );
-                    
-                    if(rank == null)
-                        throw new ResourceNotFoundException($"Không tìm thấy RANK với ID: {id}");
-
-                    return rank;
-                }
+                return rank;
+                
             }
             catch(MySqlException ex){
 
@@ -118,16 +107,14 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Thêm một Rank mới vào cơ sở dữ liệu
         /// </summary>
-        public async Task<string> AddAsync(_Rank rank){
+        public override async Task<string> AddAsync(_Rank rank){
             
             ValidateRank(rank);
 
             try{
-                using(var connection = _connectionFactory.CreateConnection()){
-                    var query = RankQueries.AddRank;
-                    var result = await connection.ExecuteAsync(query, rank);
-                    return result.ToString();
-                }
+                var query = RankQueries.AddRank;
+                var result = await Connection.ExecuteAsync(query, rank, transaction: Transaction);
+                return result.ToString();
             }
             catch(MySqlException ex){
                 _logger.Error($"Database error when adding new Rank: {ex.Number}, Message:{ex.Message}", ex);
@@ -142,15 +129,13 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Cập nhật rank trong cơ sở dữ liệu
         /// </summary>
-        public async Task<string> UpdateAsync(_Rank entity){
+        public override async Task<string> UpdateAsync(_Rank entity){
             
             ValidateRank(entity);
 
             try{
-                
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
-                    RankQueries.UpdateRank, entity
+                var result = await Connection.ExecuteAsync(
+                    RankQueries.UpdateRank, entity, transaction: Transaction
                 );
 
                 if(result <= 0)
@@ -175,16 +160,16 @@ namespace E_commerce.Infrastructure.repositories
         /// <summary>
         /// Xóa RANK dựa trên ID
         /// </summary>
-        public async Task<string> DeleteAsync(string id){
+        public override async Task<string> DeleteAsync(string id){
 
             ValidateRankId(id);
 
             try{
                 var Rank_id = ParseRankId(id);
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
+                var result = await Connection.ExecuteAsync(
                     RankQueries.DeleteRank,
-                    new { rank_id = Rank_id}
+                    new { rank_id = Rank_id},
+                    transaction: Transaction
                 );
 
                 if(result <= 0)
@@ -210,7 +195,7 @@ namespace E_commerce.Infrastructure.repositories
             }
         }
 
-        public async Task<string> PatchAsync(string id, JsonPatchDocument<_Rank> patchDoc){
+        public override async Task<string> PatchAsync(string id, JsonPatchDocument<_Rank> patchDoc){
             
             ValidateRankId(id);
 
@@ -228,9 +213,8 @@ namespace E_commerce.Infrastructure.repositories
                 patchDoc.ApplyTo(RANK);
 
                 //Cập nhât cơ sở dữ liệu
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.ExecuteAsync(
-                    RankQueries.PatchRank, RANK
+                var result = await Connection.ExecuteAsync(
+                    RankQueries.PatchRank, RANK, transaction: Transaction
                 );
 
                 if(result <= 0)

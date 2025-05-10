@@ -7,6 +7,8 @@ public partial class Staff
 {
     public string UserEmp { get; set; } = null!;
 
+    public string? AccountNumber { get; set; }
+
     public virtual ICollection<Bill> Bills { get; set; } = new List<Bill>();
 
     public virtual ICollection<ChatbotInteraction> ChatbotInteractions { get; set; } = new List<ChatbotInteraction>();

@@ -16,13 +16,14 @@ namespace E_commerce.Infrastructure.Services
         
         //Đăng ký
         //Đăng xuất
+        //public Task Logout();
         //Lấy thông tin tài khoản
         
         // Xóa tài khoản
         public Task<bool> DeleteAccount(string user_id);
 
         //Khóa tài khoản
-        public Task<bool> BlockAccount(string user_id);
+        //public Task<bool> BlockAccount(string user_id);
 
         //Khôi phục tài khoản
         public Task<bool> RecoverAccount(string user_id);

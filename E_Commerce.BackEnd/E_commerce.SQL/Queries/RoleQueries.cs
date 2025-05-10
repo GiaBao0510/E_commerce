@@ -2,7 +2,7 @@ namespace E_commerce.SQL.Queries
 {
     public static class RoleQueries
     {
-        public static string AllRole => "SELECT * FROM Role";
+        public static string AllRole => "SELECT * FROM Role"; 
         
         public static string RoleByID => "SELECT * FROM Role WHERE role_id = @role_id";
         

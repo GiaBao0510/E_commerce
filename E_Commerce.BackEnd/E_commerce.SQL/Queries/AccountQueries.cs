@@ -9,11 +9,12 @@ namespace E_commerce.SQL.Queries
         //Kiểm tra tài khoản có bị xóa không
         public static string CheckIfAccountIsDeleted =>
             "SELECT Count(phone_num) FROM `User` WHERE phone_num = @phone_num AND is_delete = 1;";
-
         
         //Lấy (mật khẩu đã băm, tài khoản, uid) dựa trên tài khoản
         public static string CheckIfAccountExists =>
-            "SELECT pass_word, phone_num, user_id, email, user_name FROM `User` WHERE phone_num = @phone_num;";
+            @"SELECT pass_word, phone_num, user_id, email, user_name, is_block, is_delete 
+            FROM `User` 
+            WHERE phone_num = @phone_num;";
         
         //Xóa tài khoản
         public static string DeleteAccount =>
