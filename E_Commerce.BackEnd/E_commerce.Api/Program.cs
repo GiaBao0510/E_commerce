@@ -49,15 +49,8 @@ builder.Services.AddEndpointsApiExplorer();
 #region ====[CORS]====
 //Configure CORS
 builder.Services.AddCors(options => {
-    var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ??
-        new []{
-            "http://localhost:3000",        //React (FrontEnd)
-            "https://localhost:3000" ,
-            "http://localhost:4200",        //Angular (FrontEnd)
-            "http://localhost:8080",        //Vue (FrontEnd)
-            "http://localhost:3001",        //Next.js (FrontEnd)
-            "http://localhost:5129"         //Swagger
-        };
+    var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+        ?? throw new InvalidOperationException("Cors:AllowedOrigins is not found");
     options.AddPolicy("AllowedOrigin", policy => {
         policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
@@ -105,7 +98,7 @@ builder.Services.AddStackExchangeRedisCache(options => {
 }); 
 #endregion
 
-#region =====[SignalR]
+#region =====[SignalR]=======
 builder.Services.AddSignalR();
 #endregion
 
@@ -172,31 +165,25 @@ builder.Services.AddAuthentication(options => {
 })
 .AddCookie(options => {
         options.Cookie.Name = "E_commerce.Cookie";                  //Tên của cookie để phân biệt với các cookie khác
-        options.Cookie.HttpOnly = true;                             // True: nghĩa là JS không thể truy cập vào cookie (bảo mật hơn)
-        options.Cookie.SecurePolicy = builder.Environment.IsProduction()
-            ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;    // Always: Nghĩa là cookie chỉ được gửi qua HTTPS (Bảo mật hơn)
+        options.Cookie.HttpOnly = false;                             // True: nghĩa là JS không thể truy cập vào cookie (bảo mật hơn)
+        options.Cookie.SecurePolicy = CookieSecurePolicy.None;      // None: cho dev Http, Always: cho prod Https
         options.Cookie.SameSite = SameSiteMode.Lax;                 // Thuộc tính SameSite giúp ngăn chặn CSRF (Cross-Site Request Forgery)
         options.ExpireTimeSpan = TimeSpan.FromHours(24);            // Thời gian sống của cookie
         options.SlidingExpiration = true;                           // True: nghĩa là mỗi lần người dùng truy cập, thời hạn của cookie sẽ được gia hạn
-        
         options.LoginPath = "/auth/login";   
-        options.LogoutPath = "/auth/logout";                                   //Trang sẽ chuyển huong khi người dùng chưa đăng nhập
-        options.AccessDeniedPath = "/auth/forbidden";                            //Trang sẽ chuyển hướng khi người dùng không có quyền truy cập vào tài nguyên
+        options.LogoutPath = "/auth/logout";                        //Trang sẽ chuyển huong khi người dùng chưa đăng nhập
+        options.AccessDeniedPath = "/auth/forbidden";               //Trang sẽ chuyển hướng khi người dùng không có quyền truy cập vào tài nguyên
 })
-.AddGoogle(GoogleDefaults.AuthenticationScheme, options => {
-    options.ClientId = builder.Configuration.GetSection("Authentication:Google:ClientId").Value;
-    options.ClientSecret = builder.Configuration.GetSection("Authentication:Google:ClientSecret").Value;
+.AddGoogle(options =>
+{
+    var clientId = builder.Configuration["Authentication:Google:ClientId"] ??            //Lấy thông tin ClientId từ appsettings.json
+        throw new InvalidOperationException("Google ClientId is not found");
+    var clientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ??  // Lấy thông tin ClientSecret từ appsettings.json
+        throw new InvalidOperationException("Google ClientSecret is not found");
 
-    //Thêm scope để lấy thông tin người dùng
-    options.Scope.Add("email");
-    options.Scope.Add("profile");
-    options.Scope.Add("openid");
-
-    //Lưu Token từ Google để sử dụng sau này
-    options.SaveTokens = true;
-
-    //Callbacks URL cho google OAuth
-    options.CallbackPath = "/auth/google-login-callback"; //URL sẽ được gọi lại sau khi người dùng đăng nhập thành công
+    options.ClientId = clientId;                        // thiết lập ClientId
+    options.ClientSecret = clientSecret;                // thiết lập ClientSecret
+    options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme; // Sử dụng cookie để lưu trữ thông tin đăng nhập
 });
 #endregion
 
@@ -246,7 +233,7 @@ app.UseAuthorization();
 
 //8. Custome Middleware. Here
 
-
+ 
 //9. Endpoints
 app.MapHub<ChatHub>("/chat-hub"); //Map SignalR hub
 app.MapControllers(); //Map all controllers

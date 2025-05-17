@@ -35,7 +35,7 @@ namespace E_commerce.Api.Middleware
                 await _next(context);
 
                 //Xử lý trong trường hợp 404 - NotFound (Không có middleware nào xử lý)
-                if(context.Response.StatusCode == (int)HttpStatusCode.NotFound || !context.Response.HasStarted){
+                if(context.Response.StatusCode == (int)HttpStatusCode.NotFound && !context.Response.HasStarted){
                     context.Response.ContentType = "application/json";
                     var res = new ApiResponse<object>{
                         Success = false,
@@ -138,6 +138,12 @@ namespace E_commerce.Api.Middleware
 
         private async Task HandleExceptionAsync(HttpContext context, Exception ex){
            
+           if(context.Response.HasStarted){
+                _logger.LogError(ex," Cannot handle exception, response already started");
+                return; 
+           }
+            
+
            context.Response.ContentType = "application/json";
 
            var res = new ApiResponse<object>{

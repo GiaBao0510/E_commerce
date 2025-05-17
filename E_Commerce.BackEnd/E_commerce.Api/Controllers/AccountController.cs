@@ -47,7 +47,7 @@ namespace E_commerce.Api.Controllers
                 Path = "/",
                 HttpOnly = false,
                 Secure = false,
-                SameSite = SameSiteMode.None,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddHours(3)
             };
 
@@ -55,7 +55,7 @@ namespace E_commerce.Api.Controllers
                 Path = "/",
                 HttpOnly = false,           //Chỉ môi trường phát triển nên bật false, để các câu lệnh JS có thể truy cập vào
                 Secure = false,
-                SameSite = SameSiteMode.None,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddDays(30)
             };
 
@@ -81,7 +81,7 @@ namespace E_commerce.Api.Controllers
                 Path = "/",
                 HttpOnly = false,
                 Secure = false,
-                SameSite = SameSiteMode.None,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddHours(3)
             };
 

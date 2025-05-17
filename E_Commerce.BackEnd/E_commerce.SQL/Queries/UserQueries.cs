@@ -60,11 +60,12 @@ namespace E_commerce.SQL.Queries
         //Tạo người dùng hoặc thêm người dùng mới dựa trên truy xuất email từ người dùng
         public static string GetOrCreateUserByEmail => 
             @"START TRANSACTION;
-            INSERT INTO `User` (user_id, user_name, date_of_birth, address, phone_num, email, pass_word, is_block, is_delete)
-            SELECT UUID_SHORT(), @user_name, NULL, NULL, NULL, @email, NULL, 0, 0
-            WHERE NOT EXISTS (
-               SELECT 1 FROM `User` WHERE email = @email
-            );
+            INSERT IGNORE INTO `User` (user_id, user_name, date_of_birth, address, phone_num, email, pass_word, is_block, is_delete)
+            VALUES (UUID_SHORT(), @name, NULL, NULL, NULL, @email, NULL, 0, 0);
+            INSERT IGNORE INTO `Customer` (user_client)
+            SELECT user_id FROM `User` WHERE email = @email;
+            INSERT IGNORE INTO `CustomerRoleDetails` (user_client, rank_id, role_id)
+            SELECT user_id, 7, 6 FROM `User` WHERE email = @email;
             SELECT * FROM `User` WHERE email = @email;
             COMMIT;";
 

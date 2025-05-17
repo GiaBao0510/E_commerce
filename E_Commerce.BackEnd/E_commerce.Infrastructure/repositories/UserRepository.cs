@@ -200,6 +200,32 @@ namespace E_commerce.Infrastructure.repositories
                 _logger.Error($"Error retrieving User with ID: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
+        }
+
+        /// <summary>
+        /// Lấy thông tin email người dùng. Nếu không có thì sẽ tạo mới
+        /// </summary>
+        public async Task<_User> GetOrCreateUserByEmail(string email, string name)
+        {
+            try
+            {
+                using var connection = _databaseConnectionFactory.CreateConnection();
+                _User result = await connection.QueryFirstOrDefaultAsync<_User>(
+                    UserQueries.GetOrCreateUserByEmail,
+                    new { email, user_name = name }
+                );
+
+                return result;
+            }
+            catch (MySqlException ex)
+            {
+                _logger.Error($"Database error when Get or create User by email: {email}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
+                throw new DetailsOfTheMysqlException(ex);
+            }
+            catch(Exception ex) when (!(ex is ECommerceException)){
+                _logger.Error($"Error when Get or create User by email: {ex.Message}", ex);
+                throw new DetailsOfTheException(ex);
+            }
         } 
 
         /// <summary>
@@ -213,7 +239,8 @@ namespace E_commerce.Infrastructure.repositories
 
             ValidateUser(user);
 
-            try{
+            try
+            {
                 //Kiểm tra trùng lặp
                 await _checkoForDuplicateErrors.CheckForDuplicateEmails(user.email);
                 await _checkoForDuplicateErrors.CheckForDuplicatePhonenumbers(user.phone_num);
@@ -222,23 +249,26 @@ namespace E_commerce.Infrastructure.repositories
                 user.pass_word = BCrypt.Net.BCrypt.HashPassword(user.pass_word);
 
                 //Thêm dữ liệu
-               var result = await Connection.ExecuteAsync(
-                    UserQueries.AddUser, 
-                    user,
-                    transaction: Transaction
-                );
-            
+                var result = await Connection.ExecuteAsync(
+                     UserQueries.AddUser,
+                     user,
+                     transaction: Transaction
+                 );
+
                 return UID;
             }
-            catch(MySqlException ex){
-                
-                if(ex.Number == MysqlExceptionsConstants.MYSQL_DUPLICATE_KEY_ERROR){
+            catch (MySqlException ex)
+            {
+
+                if (ex.Number == MysqlExceptionsConstants.MYSQL_DUPLICATE_KEY_ERROR)
+                {
                     _logger.Error($"Duplicate key error when adding user: {ex.Message}", ex);
                     throw new ValidationException($"Lỗi trùng lặp dữ liệu: {ex.Message}");
                 }
                 throw new DetailsOfTheMysqlException(ex);
             }
-            catch(Exception ex) when (!(ex is ECommerceException)){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error($"Error adding role: {ex.Message} \n Details: {ex.Message} ", ex);
                 throw new DetailsOfTheException(ex);
             }

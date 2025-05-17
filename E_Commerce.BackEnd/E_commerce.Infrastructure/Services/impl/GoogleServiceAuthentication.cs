@@ -21,10 +21,10 @@ using MySql.Data.MySqlClient;
 
 namespace E_commerce.Infrastructure.Services.impl
 {
-    public class GoogleServiceAuthentication: IGoogleServiceAuthentication
+    public class GoogleServiceAuthentication: IGoogleServiceAuthentication 
     {
         #region ===[Private Member]===
-        private readonly DatabaseConnectionFactory _connectionFactory;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger _logger;
         private readonly IConfiguration _configuration;
         private readonly HttpClient _httpClient;                //HttpClient để gửi yêu cầu đến Google API
@@ -40,7 +40,7 @@ namespace E_commerce.Infrastructure.Services.impl
         /// Hàm khởi tạo
         ///</summary>
         public GoogleServiceAuthentication(
-            DatabaseConnectionFactory connectionFactory,
+            IUnitOfWork unitOfWork,
             ILogger logger,
             ICustomerRepository customerRepository,
             IConfiguration configuration,
@@ -48,7 +48,7 @@ namespace E_commerce.Infrastructure.Services.impl
             ITokenService tokenService,
             ITokenListManagementService tokenListService
         ){
-            _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _customerRepository = customerRepository ?? throw new ArgumentNullException(nameof(customerRepository));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -56,30 +56,6 @@ namespace E_commerce.Infrastructure.Services.impl
             _jsonWebKeySet = new JsonWebKeySet();
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _tokenListService = tokenListService ?? throw new ArgumentNullException(nameof(tokenListService));
-        }
-
-        /// <summary>
-        /// Tìm thông tin người dùng thông qua email
-        /// </summary>
-        public async Task<_User> CheckVerifyAccountViaEmail(string email){
-            try
-            {
-                using var connection = _connectionFactory.CreateConnection();
-                var result = await connection.QueryFirstOrDefaultAsync(
-                    UserQueries.FindUserByEmail,
-                    new { email }
-                );
-
-                return result;
-            }
-            catch(MySqlException ex){
-                _logger.Error($"Database error when retrieving UserID: {email}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
-                throw new DetailsOfTheMysqlException(ex);
-            }
-            catch(Exception ex) when (!(ex is ECommerceException)){
-                _logger.Error($"Error retrieving User with Email: {ex.Message}", ex);
-                throw new DetailsOfTheException(ex);
-            }
         }
 
         /// <summary>
@@ -156,45 +132,23 @@ namespace E_commerce.Infrastructure.Services.impl
         }
 
         /// <summary>
-        /// Kiểm tra email người dùng cố tồn tại không, Nếu chưa thì tạo mới
-        /// </summary> 
-        public async Task<_User> GetOrCreateUser(string email, string name){
-            try
-            {
-                //Tạo người dùng mới hoặc lấy thông tin người dùng nếu email đã tồn tại
-                using var connection = _connectionFactory.CreateConnection();
-
-                _User result = await connection.QueryFirstOrDefaultAsync<_User>(
-                    UserQueries.GetOrCreateUserByEmail,
-                    new { email, user_name = name }
-                );
-
-                return result;
-            }
-            catch(MySqlException ex){
-                _logger.Error($"Database error when Get or create User by email: {email}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
-                throw new DetailsOfTheMysqlException(ex);
-            }
-            catch(Exception ex) when (!(ex is ECommerceException)){
-                _logger.Error($"Error when Get or create User by email: {ex.Message}", ex);
-                throw new DetailsOfTheException(ex);
-            }
-        } 
-
-
-        /// <summary>
         /// Đăng nhập bằng google
         /// </summary>
-        public async Task<(TokenDTO, TokenDTO)> Login(GoogleVerificationDTO googleVerificationDTO){
+        public async Task<(TokenDTO, TokenDTO)> Login(ClaimsPrincipal? claimsPrincipal){
             try{
 
-                //1. Xác thực token từ google
-                var (email, name) = await VerifyGoogleToken(googleVerificationDTO);
-                if(email == null || name == null)
-                    throw new DetailsOfTheException(new Exception("Không thể xác thực thông tin từ Google"));
+                //1. Nếu thông tin trong claimsPrincipal rỗng thì báo lỗi
+                if(claimsPrincipal == null)
+                    throw new ExternalLoginProviderException("Google", "ClaimsPrincipal is null");
+                
+                var email = claimsPrincipal.FindFirstValue(claimType: ClaimTypes.Email);
+                var name = claimsPrincipal.FindFirstValue(claimType: ClaimTypes.Name);
 
-                //2. Thực hiện tạo mới tài khoản neeys chưa tồn tại. ĐỒng thời lấy thông tin người dùng
-                _User user = await GetOrCreateUser(email, name);
+                if(string.IsNullOrEmpty(email) || string.IsNullOrEmpty(name))
+                    throw new ExternalLoginProviderException("Google", "Email or Name is null");
+
+                //2. Thực hiện tạo mới tài khoản nếu chưa tồn tại. ĐỒng thời lấy thông tin người dùng
+                _User user = await _unitOfWork.users.GetOrCreateUserByEmail(email, name);
 
                 //3. cấp access_token và refresh_token từ phía server E_commerce tự cấp dựa trên UserID 
                 AccountInforDTO account = new AccountInforDTO{

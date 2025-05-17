@@ -68,6 +68,24 @@ namespace E_commerce.Api.Controllers
         }
 
         /// <summary>
+        /// Hàm này cho biết người dùng không có quyền truy cập vào tài nguyên
+        /// </summary>
+        protected IActionResult _UnAuthorized(string message = null){
+            var res = new ApiResponse<string>{
+                Success = false,
+                Result = null,
+                Message = message ?? "Không có quyền truy cập",
+                Meta = new MetaData{
+                    StatusCode = 401,
+                    RequestId = HttpContext?.TraceIdentifier ?? Guid.NewGuid().ToString(),
+                    Timestamp = DateTime.UtcNow
+                }
+            };
+
+            return Unauthorized(res);
+        }
+
+        /// <summary>
         /// Hàm này dùng để thực hiện với giao dịch chung
         /// </summary>
         protected async Task<IActionResult> ExecuteWithTransaction<T>(

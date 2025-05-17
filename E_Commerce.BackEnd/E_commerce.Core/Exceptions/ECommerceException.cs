@@ -15,6 +15,15 @@ namespace E_commerce.Core.Exceptions
         }
     }
 
+    //Tạo lớp ngoại lệ cho lỗi khi xác thực oauth2
+    public class ExternalLoginProviderException : ECommerceException{
+        /// <summary>
+        /// Lỗi xác thực ủy quyền - 401 - AUTHENTICATION_ERROR
+        /// </summary>
+        public ExternalLoginProviderException(string message, string  provider)
+            :base($"External login provider: {provider} error occurred: {message}", 401, "AUTHENTICATION_ERROR"){}
+    }
+
     public class ValidationException : ECommerceException{
         /// <summary>
         /// Lỗi xác thực không hợp lệ - 400 - VALIDATION ERROR

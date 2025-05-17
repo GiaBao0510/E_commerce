@@ -36,6 +36,11 @@ namespace E_commerce.Application.Application
         public Task<BasicUserInfoDTO> GetBasicUserInfo(string uid);
 
         /// <summary>
+        /// Lấy thông tin email người dùng. Nếu không có thì sẽ tạo mới
+        /// </summary>
+        public Task<_User> GetOrCreateUserByEmail(string email, string name);
+
+        /// <summary>
         /// Thêm ảnh ngươi dùng dựa trên ID người dùng
         /// </summary>
         public Task AddImageForUser(string uid, IFormFile file);

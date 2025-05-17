@@ -1,6 +1,6 @@
+using System.Net;
 using E_commerce.Api.Model;
-using E_commerce.Application.DTOs.Common;
-using E_commerce.Application.DTOs.Requests;
+using E_commerce.Application.Application;
 using E_commerce.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -10,93 +10,148 @@ using Microsoft.AspNetCore.Mvc;
 namespace E_commerce.Api.Controllers
 {
     /// <summary>
-    ///     Có thể xác thực token từ google, facebook, github,...
+    /// Có thể xác thực token từ google, facebook, github,...
     /// </summary>
-    public class AuthenticationController: BaseApiController
+    public class authController: BaseApiController
     {
         #region ===[Private properties]===
         private readonly IGoogleServiceAuthentication googleServiceAuthentication;
-        private readonly IConfiguration configuration;
+        private readonly Application.Application.ILogger logger;
+        private readonly LinkGenerator linkGenerator;
         #endregion
 
         /// <summary>
         /// Hàm khởi tạo
         /// </summary>
-        public AuthenticationController(
+        public authController(
             IGoogleServiceAuthentication _googleServiceAuthentication,
-            IConfiguration _configuration
+            LinkGenerator _linkGenerator,
+            Application.Application.ILogger _logger
         )
         {
-            googleServiceAuthentication = _googleServiceAuthentication ?? 
+            googleServiceAuthentication = _googleServiceAuthentication ??
                 throw new ArgumentNullException(nameof(_googleServiceAuthentication));
-            configuration = _configuration ?? throw new ArgumentNullException(nameof(_configuration));
+            linkGenerator = _linkGenerator ??
+                throw new ArgumentNullException(nameof(_linkGenerator));
+            logger = _logger ??
+                throw new ArgumentNullException(nameof(_logger));
         }
 
         //Thiết lập tuy chọn cookies
         private CookieOptions CreateSecureCookieOptions(DateTime expires){
-            bool isDevelop = configuration.GetValue<bool>("Development:IsLocal");
-
             return new CookieOptions{
                 Path = "/",
-                HttpOnly = true,
-                Secure = false,
-                SameSite = SameSiteMode.Lax,
+                HttpOnly = false,
+                Secure = false, 
+                SameSite = SameSiteMode.Lax,            //Trong môi trường kiểm thử
                 Expires = expires
             };            
         }
 
         //Đăng nhập thông qua google
-        [HttpPost("login-google")]
+        [HttpGet("signin-google")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> LoginGoogle([FromBody] GoogleVerificationDTO googleVerificationDTO){
-            var result = await googleServiceAuthentication.Login(googleVerificationDTO);
-            TokenDTO accessToken = result.Item1;
-            TokenDTO refreshToken = result.Item2;
+        public async Task<IActionResult> LoginGoogle([FromQuery] string returnUrl)
+        {
+            //Đảm bảo returnUrl hợp lệ và thuộc danh sách Allowed Origins
+            if (string.IsNullOrEmpty(returnUrl) || !Uri.IsWellFormedUriString(returnUrl, UriKind.Absolute))
+                returnUrl = "https://localhost:3000";
 
-            //Tạp cấu hình cookieOption
-            var accessTokenCookieOptions = CreateSecureCookieOptions(accessToken.expiration);
-            var refreshTokenCookieOptions = CreateSecureCookieOptions(refreshToken.expiration);
+            //tạo thuộc tính xác thực cho Google
+            var authProperties = new AuthenticationProperties
+            {
+                //Chỉ định URL để chuyển hướng sau khi xác thực thành công
+                RedirectUri = linkGenerator.GetPathByAction(
+                    action: "GoogleCallback",
+                    controller: "auth",
+                    values: new { returnUrl = returnUrl }
+                ),
 
-            //Gửi đến người dùng
-            Response.Cookies.Append("access_token", accessToken.token, accessTokenCookieOptions);
-            Response.Cookies.Append("refresh_token", refreshToken.token, refreshTokenCookieOptions);
+                //Chỉ định các tham số bổ sung cho xác thực
+                Items = {
+                    {"returnUrl", returnUrl}
+                }
+            };
 
-            return Success("Đăng nhập thông qua google thành công");
+            //Chuyển hướng đến Google Authentication
+            return Challenge(authProperties, GoogleDefaults.AuthenticationScheme);
         }
 
-        [HttpGet("auth/google-login-callback")]
+        [HttpGet("login-google-callback")]
         [AllowAnonymous]
+        [ActionName("GoogleCallback")]
         [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GoogleCallBack(){
+        public async Task<IActionResult> GoogleCallBack([FromQuery] string returnUrl) {
+            try
+            {
+                logger.Info($"Google callback with returnUrl: {returnUrl}");
+                
+                //Thực hiện lấy kết quả xác thực từ Google
+                var authenticationResult = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
 
-            var info = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
-            if(!info.Succeeded)
-                return Unauthorized("Xác thực Google thất bại");
-            
-            var idToken = info.Properties.GetTokenValue("id_token");
-            if(string.IsNullOrEmpty(idToken))
-                return BadRequest("Không tìm thấy id_token trong thông tin xác thực");
-            
-            var result = await googleServiceAuthentication.Login(new GoogleVerificationDTO{ IdToken = idToken });
-            TokenDTO accessToken = result.Item1;
-            TokenDTO refreshToken = result.Item2;
+                //Nếu thất bại thì trả về lỗi 404
+                if (!authenticationResult.Succeeded)
+                {
+                    return BadRequest(new ApiResponse<object>
+                    {
+                        Success = false,
+                        Message = "Google authentication failed.",
+                        Meta = new MetaData
+                        {
+                            StatusCode = (int)HttpStatusCode.BadRequest,
+                            RequestId = HttpContext.TraceIdentifier,
+                            Timestamp = DateTime.UtcNow
+                        }
+                    });
+                }
 
-            //Tạp cấu hình cookieOption
-            var accessTokenCookieOptions = CreateSecureCookieOptions(accessToken.expiration);
-            var refreshTokenCookieOptions = CreateSecureCookieOptions(refreshToken.expiration);
+                //Lấy claims từ google
+                var claims = authenticationResult.Principal;
+                if (claims == null)
+                {
+                    return BadRequest(new ApiResponse<object>
+                    {
+                        Success = false,
+                        Message = "Claims is null.",
+                        Meta = new MetaData
+                        {
+                            StatusCode = (int)HttpStatusCode.BadRequest,
+                            RequestId = HttpContext.TraceIdentifier,
+                            Timestamp = DateTime.UtcNow
+                        }
+                    });
+                }
 
-            //Gửi đến người dùng
-            Response.Cookies.Append("access_token", accessToken.token, accessTokenCookieOptions);
-            Response.Cookies.Append("refresh_token", refreshToken.token, refreshTokenCookieOptions);
+                //Tạo và lấy access_token và refresh_token
+                var (access_token, refresh_token) = await googleServiceAuthentication.Login(claims);
 
-            return Success("Đăng nhập thông qua google thành công");
+                //Gửi token lên client thông qua cookie
+                Response.Cookies.Append(
+                    "access_token",
+                    access_token.token,
+                    CreateSecureCookieOptions(access_token.expiration)
+                );
+                Response.Cookies.Append(
+                    "refresh_token",
+                    refresh_token.token,
+                    CreateSecureCookieOptions(refresh_token.expiration)
+                );
+
+                //Trả về bên FE
+                return Redirect(returnUrl ?? "http://localhost:3000/home");
+            }
+            catch (Exception ex)
+            {
+                //Lỗi 500
+                return Redirect($"{returnUrl ?? "http://localhost:3000/login"}?error={ex.Message}");
+            }
         }
     }
 }

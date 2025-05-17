@@ -48,7 +48,7 @@
     <!-- Tắt thông báo cảnh báo theo mã hiệu Cảnh báo-->
     <NoWarn>
       AD0001;CS8073;NU1701;CS8603;CS8604;CS8601;CS0472;CS8618;CS8766;
-      CS8602;CS8625;CS8600;CS8714;CS8621;CS1998;CS0109;NETSDK1080
+      CS8602;CS8625;CS8600;CS8714;CS8621;CS1998;CS0109;NETSDK1080;CS8767
     </NoWarn>
     
     <!-- Bật tính năng Tiered Compilation để giúp .NET tối ưu JIT theo thời gian -->
