@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "56553f8de06cfc98",
+        "id": "5a46b34467c4528f",
         "type": "tabs",
         "children": [
           {
-            "id": "890beaca7a2c9b4c",
+            "id": "add9c0c7645272f2",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "E_Commerce.BackEnd/README.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "README"
+              "title": "New tab"
             }
           }
         ]
@@ -77,8 +73,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "right": {
     "id": "705713e8aed55076",
@@ -163,18 +158,22 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "890beaca7a2c9b4c",
+  "active": "add9c0c7645272f2",
   "lastOpenFiles": [
-    "E_Commerce.BackEnd/E_commerce.Api/obj/960f0e09-4b80-445d-9d25-d86ef8240793.tmp",
-    "E_Commerce.BackEnd/E_commerce.Api/obj/2f11abf5-eec3-4f2c-bd31-9ec1928ca896.tmp",
-    "E_Commerce.BackEnd/E_commerce.Api/obj/08270184-f38f-4ede-a66f-8cd7e360e62a.tmp",
-    "E_Commerce.BackEnd/E_commerce.Infrastructure/Configurations",
-    "E_Commerce.BackEnd/E_commerce.Api/DTOs/Responses",
-    "E_Commerce.BackEnd/E_commerce.Api/DTOs/Requests",
-    "E_Commerce.BackEnd/E_commerce.Api/DTOs",
-    "E_Commerce.BackEnd/E_commerce.Core/Exceptions/ECommerceException.cs",
-    "E_Commerce.BackEnd/E_commerce.Core/Exceptions",
-    "E_Commerce.BackEnd/E_commerce.Api/Middleware/ExceptionHandlingMiddleware.cs",
-    "E_Commerce.BackEnd/E_commerce.Api/Middleware/ExceptionNotFound.cs"
+    "E_Commerce.BackEnd/Docs/Handling_File.markdown",
+    "E_Commerce.FrontEnd/e-commerce-client-react/src/App.jsx",
+    "E_Commerce.BackEnd/E_commerce.Core/obj/5c0435b0-e50f-4a41-aea1-25b2f626ebf6.tmp",
+    "E_Commerce.BackEnd/E_commerce.Api/README.md",
+    "E_Commerce.BackEnd/Docs/Google_Oauth2.md",
+    "E_Commerce.BackEnd/Docs",
+    "E_Commerce.BackEnd/E_commerce.Infrastructure/Services/impl/CloudinaryServices.cs",
+    "E_Commerce.BackEnd/E_commerce.Api/obj/932ef783-b739-4a1e-b867-a69b2d04bfa6.tmp",
+    "E_Commerce.BackEnd/E_commerce.Infrastructure/obj/1e0eb0f6-a83d-47a1-bc28-27ddb2163333.tmp",
+    "E_Commerce.BackEnd/E_commerce.Infrastructure/obj/48726841-87e5-46bd-b781-30bb4cc40392.tmp",
+    "E_Commerce.BackEnd/E_commerce.Infrastructure/Services/ICloudinaryServices.cs",
+    "E_Commerce.BackEnd/E_commerce.Infrastructure/Services/impl/ICloudinaryService.cs",
+    "E_Commerce.BackEnd/E_commerce.Api/Authentication/CustomeAuthenticationHandler.cs",
+    "E_Commerce.BackEnd/E_commerce.Infrastructure/README.md",
+    "E_Commerce.BackEnd/README.md"
   ]
 }

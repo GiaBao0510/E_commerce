@@ -402,3 +402,6 @@ FodyWeavers.xsd
 
 #---
 E_Commerce.BackEnd/E_commerce.Api/appsettings.json
+E_Commerce.BackEnd/DBScripts/temp
+E_Commerce.BackEnd/DBScripts/temp/UserData.csv
+E_Commerce.BackEnd/DBScripts/temp/UserData.tsv
