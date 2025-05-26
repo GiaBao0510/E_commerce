@@ -6,7 +6,7 @@ using E_commerce.Core.Exceptions;
 using E_commerce.Infrastructure.Data;
 using E_commerce.Infrastructure.Utils;
 using E_commerce.SQL.Queries;
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 
 namespace E_commerce.Infrastructure.Services.impl
 {

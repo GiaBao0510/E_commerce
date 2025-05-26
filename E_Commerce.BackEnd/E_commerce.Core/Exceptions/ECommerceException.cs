@@ -1,4 +1,4 @@
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 
 namespace E_commerce.Core.Exceptions
 {
@@ -124,7 +124,7 @@ namespace E_commerce.Core.Exceptions
                 $"[Data]: {ex.Data}"+
                 $"[StackTrace: {ex.StackTrace}"+
                 $"[Number]: {ex.Number}"+
-                $"[Code]: {ex.Code}"+
+                $"[ErrorCode]: {ex.ErrorCode}"+
                 $"[BatchCommand]: {ex.BatchCommand}"+
                 $"[Source]: {ex.Source}"+
                 $"[SqlState]: {ex.SqlState}"+

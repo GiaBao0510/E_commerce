@@ -48,6 +48,37 @@ namespace E_commerce.Api.Controllers
             };            
         }
 
+        //Kiểm tra xem cấu hình có hoạt động đúng trong môi trường devveloper
+        [HttpGet("test-auth")]
+        [AllowAnonymous]
+        public IActionResult TestAuth()
+        {
+            Response.Cookies.Append(
+                "test_cookie",
+                "test_value",
+                new CookieOptions
+                {
+                    Path = "/",
+                    HttpOnly = false,
+                    Secure = false, // Chỉ sử dụng trong môi trường phát triển
+                    SameSite = SameSiteMode.Lax,
+                    Expires = DateTimeOffset.UtcNow.AddMinutes(5)
+                }
+            );
+
+            return Ok(new ApiResponse<string>
+            {
+                Success = true,
+                Message = "Test cookie created successfully.",
+                Meta = new MetaData
+                {
+                    StatusCode = (int)HttpStatusCode.OK,
+                    RequestId = HttpContext.TraceIdentifier,
+                    Timestamp = DateTime.UtcNow
+                }
+            });
+        }
+
         //Đăng nhập thông qua google
         [HttpGet("signin-google")]
         [AllowAnonymous]
@@ -59,16 +90,18 @@ namespace E_commerce.Api.Controllers
         {
             //Đảm bảo returnUrl hợp lệ và thuộc danh sách Allowed Origins
             if (string.IsNullOrEmpty(returnUrl) || !Uri.IsWellFormedUriString(returnUrl, UriKind.Absolute))
-                returnUrl = "https://localhost:3000";
+                returnUrl = "https://localhost:3000/auth/callback";
+
+            logger.Info($"starting google login with returnUrl: {returnUrl}");
 
             //tạo thuộc tính xác thực cho Google
             var authProperties = new AuthenticationProperties
             {
                 //Chỉ định URL để chuyển hướng sau khi xác thực thành công
-                RedirectUri = linkGenerator.GetPathByAction(
-                    action: "GoogleCallback",
-                    controller: "auth",
-                    values: new { returnUrl = returnUrl }
+                RedirectUri = Url.Action(
+                    "GoogleCallback",
+                    "auth",
+                    values: new { returnUrl }
                 ),
 
                 //Chỉ định các tham số bổ sung cho xác thực
@@ -99,17 +132,8 @@ namespace E_commerce.Api.Controllers
                 //Nếu thất bại thì trả về lỗi 404
                 if (!authenticationResult.Succeeded)
                 {
-                    return BadRequest(new ApiResponse<object>
-                    {
-                        Success = false,
-                        Message = "Google authentication failed.",
-                        Meta = new MetaData
-                        {
-                            StatusCode = (int)HttpStatusCode.BadRequest,
-                            RequestId = HttpContext.TraceIdentifier,
-                            Timestamp = DateTime.UtcNow
-                        }
-                    });
+                    logger.Error($"Google authentication failed: {authenticationResult.Failure.Message}");
+                    return Redirect($"{returnUrl}?error={WebUtility.UrlEncode("Authentication failed")}");
                 }
 
                 //Lấy claims từ google
@@ -150,7 +174,7 @@ namespace E_commerce.Api.Controllers
             catch (Exception ex)
             {
                 //Lỗi 500
-                return Redirect($"{returnUrl ?? "http://localhost:3000/login"}?error={ex.Message}");
+                return Redirect($"{returnUrl ?? "http://localhost:3000/login"}?error={WebUtility.UrlEncode(ex.Message)}");
             }
         }
     }

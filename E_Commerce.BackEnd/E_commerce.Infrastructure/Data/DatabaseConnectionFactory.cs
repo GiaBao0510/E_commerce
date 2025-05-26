@@ -2,7 +2,7 @@ using System.Data;
 using System.Threading;
 using E_commerce.Application.Application;
 using Microsoft.Extensions.Configuration;
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 
 namespace E_commerce.Infrastructure.Data
 {
@@ -91,7 +91,7 @@ namespace E_commerce.Infrastructure.Data
                     }
 
                     _logger.Warn($"Database connection attempt {i+1} failed: {ex.Message}. Retrying in {_retryDelayMs}ms...");
-                    Thread.Sleep(_retryDelayMs);
+                    await Task.Delay(_retryDelayMs);
                 }
             }
             

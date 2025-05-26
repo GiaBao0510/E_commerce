@@ -1,23 +1,14 @@
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
-using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
-using System.Threading.Tasks;
-using Dapper;
 using E_commerce.Application.Application;
 using E_commerce.Application.DTOs.Common;
 using E_commerce.Application.DTOs.Requests;
 using E_commerce.Core.Entities;
 using E_commerce.Core.Exceptions;
-using E_commerce.Infrastructure.Data;
 using E_commerce.Infrastructure.Utils;
-using E_commerce.SQL.Queries;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using MySql.Data.MySqlClient;
 
 namespace E_commerce.Infrastructure.Services.impl
 {

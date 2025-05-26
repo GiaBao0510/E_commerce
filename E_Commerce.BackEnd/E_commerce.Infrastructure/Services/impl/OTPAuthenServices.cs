@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using E_commerce.Application.Application;
 using E_commerce.Application.DTOs.Requests;
 using E_commerce.Core.Entities;

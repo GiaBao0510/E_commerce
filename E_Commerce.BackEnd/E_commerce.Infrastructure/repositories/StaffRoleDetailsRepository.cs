@@ -5,7 +5,7 @@ using E_commerce.Core.Exceptions;
 using E_commerce.Infrastructure.Constants;
 using E_commerce.SQL.Queries;
 using Microsoft.AspNetCore.JsonPatch;
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 
 namespace E_commerce.Infrastructure.repositories
 {

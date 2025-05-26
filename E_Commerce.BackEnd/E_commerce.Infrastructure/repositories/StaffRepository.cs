@@ -7,7 +7,7 @@ using E_commerce.Infrastructure.Utils;
 using E_commerce.SQL.Queries;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.EntityFrameworkCore;
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 
 namespace E_commerce.Infrastructure.repositories
 {

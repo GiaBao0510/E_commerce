@@ -20,16 +20,23 @@ using E_commerce.Api.Hubs;
 var builder = WebApplication.CreateBuilder(args);
 
 //Cấu hình kerstrel để lắng nghe trên nhiều cổng
-builder.WebHost.ConfigureKestrel(options => {
+builder.WebHost.ConfigureKestrel(options =>
+{
     //Http Endpoint
     var httpPort = builder.Configuration.GetValue<int>("Ports:Http", 5126);
     var httpsPort = builder.Configuration.GetValue<int>("Ports:Https", 5127);
 
     //HTTP/1.1 và HTTP/2
-    options.ListenLocalhost(httpPort, listenOption =>{
-        listenOption.Protocols = 
+    options.ListenLocalhost(httpPort, listenOption =>
+    {
+        listenOption.Protocols =
             Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
     });
+
+    //Tăng giới hạn và timeout mặc định của kerstrel server để hỗ trợ upload đảm bảo kết nối không bị ngắt
+    options.Limits.MaxRequestBodySize = 5_368_709_120;              //Giới hạn dung lượng đối đa cho toàn bộ body Http request
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(10);    //Thời gian tối đa để client gửi toàn bộ header
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(10);         //Thời gian tối đa để server giữ kết nối mở sau khi gửi response
 });
 
 //Configura Log4net.
@@ -165,24 +172,21 @@ builder.Services.AddAuthentication(options => {
 })
 .AddCookie(options => {
         options.Cookie.Name = "E_commerce.Cookie";                  //Tên của cookie để phân biệt với các cookie khác
-        options.Cookie.HttpOnly = false;                             // True: nghĩa là JS không thể truy cập vào cookie (bảo mật hơn)
+        options.Cookie.HttpOnly = true;                             // True: nghĩa là JS không thể truy cập vào cookie (bảo mật hơn)
         options.Cookie.SecurePolicy = CookieSecurePolicy.None;      // None: cho dev Http, Always: cho prod Https
         options.Cookie.SameSite = SameSiteMode.Lax;                 // Thuộc tính SameSite giúp ngăn chặn CSRF (Cross-Site Request Forgery)
         options.ExpireTimeSpan = TimeSpan.FromHours(24);            // Thời gian sống của cookie
         options.SlidingExpiration = true;                           // True: nghĩa là mỗi lần người dùng truy cập, thời hạn của cookie sẽ được gia hạn
-        options.LoginPath = "/auth/login";   
-        options.LogoutPath = "/auth/logout";                        //Trang sẽ chuyển huong khi người dùng chưa đăng nhập
-        options.AccessDeniedPath = "/auth/forbidden";               //Trang sẽ chuyển hướng khi người dùng không có quyền truy cập vào tài nguyên
 })
 .AddGoogle(options =>
 {
-    var clientId = builder.Configuration["Authentication:Google:ClientId"] ??            //Lấy thông tin ClientId từ appsettings.json
-        throw new InvalidOperationException("Google ClientId is not found");
-    var clientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ??  // Lấy thông tin ClientSecret từ appsettings.json
-        throw new InvalidOperationException("Google ClientSecret is not found");
+    options.ClientId = builder.Configuration["Authentication:Google:ClientId"];                        // thiết lập ClientId
+    options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];                // thiết lập ClientSecret
 
-    options.ClientId = clientId;                        // thiết lập ClientId
-    options.ClientSecret = clientSecret;                // thiết lập ClientSecret
+    options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.None; //None: cho dev Http, Always: cho prod Https
+    options.CorrelationCookie.HttpOnly = true;         //True: nghĩa là JS không thể truy cập vào cookie (bảo mật hơn)
+    options.CorrelationCookie.IsEssential = true;      //True: nghĩa là cookie này là cần thiết cho ứng dụng
     options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme; // Sử dụng cookie để lưu trữ thông tin đăng nhập
 });
 #endregion
@@ -190,6 +194,17 @@ builder.Services.AddAuthentication(options => {
 //Add health check
 builder.Services.AddHealthChecks();
 
+#region =====[FormOptions]: Mục đích là cấu hình giới hạn cho mutipart/form-data khi upload file thông qua form. =======
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 5_368_709_120;       //Giớ hạn tổng lượng bodyfile là 500MB
+    options.ValueLengthLimit = int.MaxValue;               //Giới hạn độ dài của giá trị trong form    
+    options.ValueCountLimit = int.MaxValue;                //Giới hạn số lượng giá trị tối đã được phép trong form
+    options.KeyLengthLimit = int.MaxValue;                 //Giới hạn độ dài của key trong form
+    options.BufferBody = false;                            //False: nghĩa là không lưu trữ toàn bộ body trong bộ nhớ, thì sẽ dùng streaming để xử lý file lớn mà không tốn nhiều RAM
+    options.MemoryBufferThreshold = 1024 * 1024;            // 1 MB threshold để chuyển sang disk
+});
+#endregion
 
 #region  ====[Middler ware]====
 var app = builder.Build();

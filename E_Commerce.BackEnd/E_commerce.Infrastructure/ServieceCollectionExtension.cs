@@ -80,6 +80,7 @@ namespace E_commerce.Infrastructure
             services.AddScoped<IMailjetService, MailjetEmailService>();
             services.AddScoped<IMailtrapService, MailtrapSerrvices>();
             services.AddScoped<IOTPAuthenServices, OTPAuthenServices>();
+            services.AddScoped<IFileDataProccessingServices, FileDataProccessingServices>();
 
             //Background service
             services.AddHostedService<TokenCleanUpServices>();          //Chạy ngầm để xóa các token hết hạn trong white-list

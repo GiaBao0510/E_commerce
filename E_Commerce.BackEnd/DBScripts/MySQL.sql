@@ -110,15 +110,12 @@ CREATE TABLE IF NOT EXISTS `Collaborate` (
   `position_id` int NOT NULL,
   `dep_id` tinyint NOT NULL,
   `user_emp` varchar(18) DEFAULT NULL,
-  `branch_id` tinyint NOT NULL,
   KEY `user_emp` (`user_emp`),
   KEY `dep_id` (`dep_id`),
   KEY `position_id` (`position_id`),
-  KEY `FK_Branch_staff` (`branch_id`),
   CONSTRAINT `Collaborate_ibfk_1` FOREIGN KEY (`user_emp`) REFERENCES `Staff` (`user_emp`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `Collaborate_ibfk_2` FOREIGN KEY (`dep_id`) REFERENCES `Department` (`dep_id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `Collaborate_ibfk_3` FOREIGN KEY (`position_id`) REFERENCES `PositionStaff` (`position_id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `FK_Branch_staff` FOREIGN KEY (`branch_id`) REFERENCES `Branch` (`branch_id`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `Collaborate_ibfk_3` FOREIGN KEY (`position_id`) REFERENCES `PositionStaff` (`position_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table E_commerce.Collaborate: ~0 rows (approximately)
@@ -141,13 +138,16 @@ CREATE TABLE IF NOT EXISTS `Comments` (
 CREATE TABLE IF NOT EXISTS `Conversation` (
   `conversation_id` int NOT NULL AUTO_INCREMENT,
   `conversation_name` varchar(100) NOT NULL,
-  `user_id` varchar(18) NOT NULL,
-  PRIMARY KEY (`conversation_id`),
-  KEY `user_id` (`user_id`),
-  CONSTRAINT `Conversation_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `User` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  PRIMARY KEY (`conversation_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Conversation: ~0 rows (approximately)
+-- Dumping data for table E_commerce.Conversation: ~5 rows (approximately)
+INSERT INTO `Conversation` (`conversation_id`, `conversation_name`) VALUES
+	(1, 'string'),
+	(2, '20250505123920'),
+	(3, '20250505123932'),
+	(4, '20250505123934'),
+	(5, '20250505125338');
 
 -- Dumping structure for table E_commerce.Customer
 CREATE TABLE IF NOT EXISTS `Customer` (
@@ -157,10 +157,13 @@ CREATE TABLE IF NOT EXISTS `Customer` (
   CONSTRAINT `Customer_ibfk_1` FOREIGN KEY (`user_client`) REFERENCES `User` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Customer: ~2 rows (approximately)
+-- Dumping data for table E_commerce.Customer: ~5 rows (approximately)
 INSERT INTO `Customer` (`user_client`) VALUES
+	('101345978971324417'),
+	('101378533917458432'),
 	('2504081426024xJhng'),
-	('250408142632ZyzD95');
+	('250408142632ZyzD95'),
+	('250502092700UV4uT7');
 
 -- Dumping structure for table E_commerce.CustomerRoleDetails
 CREATE TABLE IF NOT EXISTS `CustomerRoleDetails` (
@@ -175,10 +178,14 @@ CREATE TABLE IF NOT EXISTS `CustomerRoleDetails` (
   CONSTRAINT `CustomerRoleDetails_ibfk_3` FOREIGN KEY (`rank_id`) REFERENCES `Rank` (`rank_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.CustomerRoleDetails: ~2 rows (approximately)
+-- Dumping data for table E_commerce.CustomerRoleDetails: ~6 rows (approximately)
 INSERT INTO `CustomerRoleDetails` (`user_client`, `rank_id`, `role_id`) VALUES
 	('2504081426024xJhng', 7, 6),
-	('250408142632ZyzD95', 7, 6);
+	('250408142632ZyzD95', 7, 6),
+	('250502092700UV4uT7', 7, 6),
+	('101378533917458432', 7, 6),
+	('101345978971324417', 7, 6),
+	('101345978971324417', 7, 6);
 
 -- Dumping structure for table E_commerce.Department
 CREATE TABLE IF NOT EXISTS `Department` (
@@ -186,9 +193,14 @@ CREATE TABLE IF NOT EXISTS `Department` (
   `dep_name` varchar(50) DEFAULT NULL,
   `infor` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`dep_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Department: ~0 rows (approximately)
+-- Dumping data for table E_commerce.Department: ~4 rows (approximately)
+INSERT INTO `Department` (`dep_id`, `dep_name`, `infor`) VALUES
+	(1, 'Phòng Kế Toán', 'Thống kê tài chính'),
+	(2, 'Phòng IT', 'Bảo trì hệ thống'),
+	(3, 'Phòng Bảo Vệ', 'Quan sát, canh gác thiết bị vật tư'),
+	(4, 'Phòng Nhân Sự', 'Tuyển dụng');
 
 -- Dumping structure for table E_commerce.DepartmentDetails
 CREATE TABLE IF NOT EXISTS `DepartmentDetails` (
@@ -274,15 +286,24 @@ CREATE TABLE IF NOT EXISTS `GoodsReceiptDetails` (
 CREATE TABLE IF NOT EXISTS `GroupChat` (
   `group_id` int NOT NULL AUTO_INCREMENT,
   `group_name` varchar(100) NOT NULL,
-  `group_type` tinyint(1) DEFAULT '0',
+  `is_group` tinyint(1) DEFAULT '0',
   `join_date` datetime DEFAULT CURRENT_TIMESTAMP,
   `user_id` varchar(18) NOT NULL,
+  `conversation_id` int NOT NULL,
   PRIMARY KEY (`group_id`),
+  UNIQUE KEY `uk_User_Conversation` (`conversation_id`,`user_id`),
   KEY `user_id` (`user_id`),
+  KEY `idx_groupchat_id` (`group_id`),
+  CONSTRAINT `FK_Conversation_groupChat` FOREIGN KEY (`conversation_id`) REFERENCES `Conversation` (`conversation_id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `GroupChat_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `User` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.GroupChat: ~0 rows (approximately)
+-- Dumping data for table E_commerce.GroupChat: ~4 rows (approximately)
+INSERT INTO `GroupChat` (`group_id`, `group_name`, `is_group`, `join_date`, `user_id`, `conversation_id`) VALUES
+	(3, 'string', 1, '2025-05-05 12:07:04', '250503091203b53bu5', 1),
+	(4, 'string', 1, '2025-05-05 12:05:05', '250503091203b53bu5', 2),
+	(5, 'string', 1, '2025-05-05 12:56:27', '250503090548eVPUKK', 2),
+	(6, 'string', 1, '2025-05-05 12:05:05', '250503091203b53bu5', 4);
 
 -- Dumping structure for table E_commerce.Images
 CREATE TABLE IF NOT EXISTS `Images` (
@@ -290,9 +311,11 @@ CREATE TABLE IF NOT EXISTS `Images` (
   `public_id` varchar(100) NOT NULL,
   `path_img` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`img_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table E_commerce.Images: ~0 rows (approximately)
+INSERT INTO `Images` (`img_id`, `public_id`, `path_img`) VALUES
+	(5, 'NguoiDung/gpnjhsslxiouddmrcxle', 'http://res.cloudinary.com/dkajnklq6/image/upload/v1746172147/NguoiDung/gpnjhsslxiouddmrcxle.jpg');
 
 -- Dumping structure for table E_commerce.LoginHistory
 CREATE TABLE IF NOT EXISTS `LoginHistory` (
@@ -321,7 +344,7 @@ CREATE TABLE IF NOT EXISTS `LoginHistory` (
 CREATE TABLE IF NOT EXISTS `Message` (
   `mess_id` varchar(18) NOT NULL,
   `text` varchar(255) NOT NULL,
-  `send_date` datetime DEFAULT CURRENT_TIMESTAMP,
+  `send_date` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `from_number` varchar(18) NOT NULL,
   `conversation_id` int NOT NULL,
   PRIMARY KEY (`mess_id`),
@@ -329,7 +352,13 @@ CREATE TABLE IF NOT EXISTS `Message` (
   CONSTRAINT `Message_ibfk_1` FOREIGN KEY (`conversation_id`) REFERENCES `Conversation` (`conversation_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Message: ~0 rows (approximately)
+-- Dumping data for table E_commerce.Message: ~5 rows (approximately)
+INSERT INTO `Message` (`mess_id`, `text`, `send_date`, `from_number`, `conversation_id`) VALUES
+	('20250506083012561', 'Hello', '2025-05-06 08:30:13', '250503091203b53bu5', 1),
+	('20250506091429567', 'Ăn uống gì chưa người đẹp', '2025-05-06 09:14:30', '250503091203b53bu5', 1),
+	('20250506091441761', 'Làm gì đó', '2025-05-06 09:14:42', '250503091203b53bu5', 1),
+	('20250506091454085', 'Lát anh qua, anh đón nhe', '2025-05-06 09:14:54', '250503091203b53bu5', 1),
+	('20250506091513550', 'Bb ngủ ngon', '2025-05-06 09:15:14', '250503091203b53bu5', 1);
 
 -- Dumping structure for table E_commerce.OAuthProvider
 CREATE TABLE IF NOT EXISTS `OAuthProvider` (
@@ -395,9 +424,17 @@ CREATE TABLE IF NOT EXISTS `PositionStaff` (
   `position_name` varchar(50) DEFAULT NULL,
   `allowance_coefficient` int DEFAULT '0',
   PRIMARY KEY (`position_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.PositionStaff: ~0 rows (approximately)
+-- Dumping data for table E_commerce.PositionStaff: ~7 rows (approximately)
+INSERT INTO `PositionStaff` (`position_id`, `position_name`, `allowance_coefficient`) VALUES
+	(1, 'Phó Chủ Tịch', 3),
+	(2, 'Chủ Tịch', 4),
+	(3, 'Giám Đốc', 5),
+	(4, 'Trưởng phòng', 2),
+	(5, 'Phó Trưởng phòng', 1),
+	(6, 'Tiếp Thi', 1),
+	(7, 'Tư Vấn', 1);
 
 -- Dumping structure for table E_commerce.ProductPhoto
 CREATE TABLE IF NOT EXISTS `ProductPhoto` (
@@ -416,11 +453,19 @@ CREATE TABLE IF NOT EXISTS `ProductType` (
   `protyle_id` tinyint NOT NULL AUTO_INCREMENT,
   `protyle_name` varchar(50) NOT NULL,
   `alias_name` varchar(50) DEFAULT NULL,
-  `details` varchar(50) DEFAULT NULL,
+  `details` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
   PRIMARY KEY (`protyle_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.ProductType: ~0 rows (approximately)
+-- Dumping data for table E_commerce.ProductType: ~7 rows (approximately)
+INSERT INTO `ProductType` (`protyle_id`, `protyle_name`, `alias_name`, `details`) VALUES
+	(1, 'Quần dài', NULL, NULL),
+	(2, 'Quần ngắn', NULL, NULL),
+	(3, 'Sữa tắm', NULL, NULL),
+	(4, 'Dầu gội', NULL, NULL),
+	(5, 'Giày thể thao', NULL, NULL),
+	(6, 'Áo tay dài', NULL, NULL),
+	(7, 'Áo tay ngắn', NULL, NULL);
 
 -- Dumping structure for table E_commerce.ProductTypeDetails
 CREATE TABLE IF NOT EXISTS `ProductTypeDetails` (
@@ -443,9 +488,12 @@ CREATE TABLE IF NOT EXISTS `Promotion` (
   `end_time` datetime DEFAULT NULL,
   PRIMARY KEY (`promo_id`),
   CONSTRAINT `Promotion_chk_1` CHECK ((`end_time` > `start_time`))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Promotion: ~0 rows (approximately)
+-- Dumping data for table E_commerce.Promotion: ~2 rows (approximately)
+INSERT INTO `Promotion` (`promo_id`, `promo_name`, `discount`, `start_time`, `end_time`) VALUES
+	(1, 'Ngày bình thường', 0, '2025-05-10 21:23:36', '2999-12-31 13:39:19'),
+	(2, 'Ngày đặc biệt', 5, '2025-05-10 21:24:20', '2025-05-12 13:39:19');
 
 -- Dumping structure for table E_commerce.Rank
 CREATE TABLE IF NOT EXISTS `Rank` (
@@ -454,9 +502,9 @@ CREATE TABLE IF NOT EXISTS `Rank` (
   `rating_point` int DEFAULT '0',
   `describe` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`rank_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Rank: ~7 rows (approximately)
+-- Dumping data for table E_commerce.Rank: ~9 rows (approximately)
 INSERT INTO `Rank` (`rank_id`, `rank_name`, `rating_point`, `describe`) VALUES
 	(1, 'Admin', 0, 'Quản trị viên'),
 	(2, 'Đồng', 30, 'Ưu đãi lên 5%'),
@@ -464,7 +512,9 @@ INSERT INTO `Rank` (`rank_id`, `rank_name`, `rating_point`, `describe`) VALUES
 	(4, 'Vàng', 100, 'Ưu đãi lên 12%'),
 	(5, 'Bạch Kim', 150, 'Ưu đãi lên 15%'),
 	(6, 'Kim cương', 200, 'Ưu đãi lên 20%'),
-	(7, 'Thành viên', 0, 'Ưu đãi 0%');
+	(7, 'Thành viên', 0, 'Ưu đãi 0%'),
+	(9, 'Thách đấu', 0, 'Ưu đãi 100%'),
+	(10, 'Thách đấu', 0, 'Ưu đãi 100%');
 
 -- Dumping structure for table E_commerce.RefreshToken
 CREATE TABLE IF NOT EXISTS `RefreshToken` (
@@ -505,9 +555,9 @@ CREATE TABLE IF NOT EXISTS `Role` (
   `role_name` varchar(50) DEFAULT NULL,
   `describe` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`role_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Role: ~7 rows (approximately)
+-- Dumping data for table E_commerce.Role: ~8 rows (approximately)
 INSERT INTO `Role` (`role_id`, `role_name`, `describe`) VALUES
 	(1, 'Admin', 'Quản trị viên'),
 	(2, 'WarehouseStaff', 'Nhân viên bên kho'),
@@ -515,7 +565,8 @@ INSERT INTO `Role` (`role_id`, `role_name`, `describe`) VALUES
 	(6, 'Client', 'Người tiêu dùng mua sắm'),
 	(7, 'Employee', 'Nhân viên'),
 	(9, 'Test_06', 'hehkkke'),
-	(10, 'Test_07', 'hehkkke');
+	(10, 'Test_07', 'hehkkke'),
+	(11, 'Test_08', 'hehkkke');
 
 -- Dumping structure for table E_commerce.RolePermission
 CREATE TABLE IF NOT EXISTS `RolePermission` (
@@ -565,25 +616,37 @@ CREATE TABLE IF NOT EXISTS `ShippingBill` (
 -- Dumping structure for table E_commerce.Staff
 CREATE TABLE IF NOT EXISTS `Staff` (
   `user_emp` varchar(18) NOT NULL,
+  `account_number` varchar(12) DEFAULT NULL,
   PRIMARY KEY (`user_emp`),
   KEY `idx_staff_user_emp` (`user_emp`),
   CONSTRAINT `Staff_ibfk_1` FOREIGN KEY (`user_emp`) REFERENCES `User` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Staff: ~0 rows (approximately)
+-- Dumping data for table E_commerce.Staff: ~6 rows (approximately)
+INSERT INTO `Staff` (`user_emp`, `account_number`) VALUES
+	('2505030904538OBRvu', '021454878'),
+	('2505030905341xDrun', '021454878'),
+	('250503090548eVPUKK', '021454878'),
+	('250503090605tzo6cs', '021454878'),
+	('250503090636qzFNhf', '021454878'),
+	('250503091203b53bu5', '021454878');
 
 -- Dumping structure for table E_commerce.StaffRoleDetails
 CREATE TABLE IF NOT EXISTS `StaffRoleDetails` (
   `user_emp` varchar(18) NOT NULL,
   `describe` varchar(255) DEFAULT NULL,
   `role_id` tinyint NOT NULL,
+  UNIQUE KEY `uk_staff_role` (`user_emp`,`role_id`),
   KEY `idx_staff_role_user` (`user_emp`),
   KEY `idx_staff_role_id` (`role_id`),
   CONSTRAINT `StaffRoleDetails_ibfk_1` FOREIGN KEY (`user_emp`) REFERENCES `Staff` (`user_emp`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `StaffRoleDetails_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `Role` (`role_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.StaffRoleDetails: ~0 rows (approximately)
+-- Dumping data for table E_commerce.StaffRoleDetails: ~2 rows (approximately)
+INSERT INTO `StaffRoleDetails` (`user_emp`, `describe`, `role_id`) VALUES
+	('250503091203b53bu5', 'string', 1),
+	('250503091203b53bu5', 'Quản trị viên', 2);
 
 -- Dumping structure for table E_commerce.Status
 CREATE TABLE IF NOT EXISTS `Status` (
@@ -605,10 +668,18 @@ CREATE TABLE IF NOT EXISTS `Supplier` (
   `contact_person` varchar(100) NOT NULL,
   `detail` varchar(255) DEFAULT NULL,
   `tax_code` varchar(20) NOT NULL,
-  PRIMARY KEY (`sup_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  PRIMARY KEY (`sup_id`),
+  UNIQUE KEY `phone_num` (`phone_num`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.Supplier: ~0 rows (approximately)
+-- Dumping data for table E_commerce.Supplier: ~5 rows (approximately)
+INSERT INTO `Supplier` (`sup_id`, `sup_name`, `email`, `phone_num`, `address`, `contact_person`, `detail`, `tax_code`) VALUES
+	(1, 'Nha Cung Cap 1', 'nhaCungCap1@gamil.com', '0123456789', '3/2, q.Ninh Kiều, tp.Cần Thơ', 'ThongTinLienHe1', 'null', '458754121545'),
+	(7, 'Nha Cung Cap 1', 'nhaCungCap3@gamil.com', '0123456791', '3/2, q.Ninh Kiều, tp.Cần Thơ', 'ThongTinLienHe1', 'null', '458754121545'),
+	(8, 'Nha Cung Cap 1', 'nhaCungCap4@gamil.com', '0123456792', '3/2, q.Ninh Kiều, tp.Cần Thơ', 'ThongTinLienHe1', 'null', '458754121545'),
+	(9, 'Nha Cung Cap 1', 'nhaCungCap5@gamil.com', '0123456793', '3/2, q.Ninh Kiều, tp.Cần Thơ', 'ThongTinLienHe1', 'null', '458754121545'),
+	(10, 'Nha Cung Cap 1', 'nhaCungCap6@gamil.com', '0123456794', '3/2, q.Ninh Kiều, tp.Cần Thơ', 'ThongTinLienHe1', 'null', '458754121545');
 
 -- Dumping structure for table E_commerce.SupplierLogo
 CREATE TABLE IF NOT EXISTS `SupplierLogo` (
@@ -653,10 +724,13 @@ CREATE TABLE IF NOT EXISTS `User` (
   KEY `idx_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table E_commerce.User: ~9 rows (approximately)
+-- Dumping data for table E_commerce.User: ~21 rows (approximately)
 INSERT INTO `User` (`user_id`, `user_name`, `date_of_birth`, `address`, `phone_num`, `email`, `pass_word`, `is_block`, `is_delete`) VALUES
 	('101345978971324416', 'kiem tra', NULL, NULL, NULL, 'baophamgia2002@gmail.com', NULL, 0, 0),
 	('101345978971324417', 'kiem tra', NULL, NULL, NULL, 'pgiabao2002@gmail.com', NULL, 0, 0),
+	('101367612688039936', 'Nhã Vy', NULL, NULL, NULL, 'nhavy@gmail.com', NULL, 0, 0),
+	('101367612688039939', 'Nhã Vy', NULL, NULL, NULL, 'nhavy1@gmail.com', NULL, 0, 0),
+	('101378533917458432', 'Pham Gia Bao B2016947', NULL, NULL, NULL, 'baob2016947@student.ctu.edu.vn', NULL, 0, 0),
 	('250406043636JWJ99W', 'Nguyễn Tuấn Đạt 09', '2025-10-15', 'phường 3, Bạc Liêu hóa Cà Mau', '0989337220', 'ntdat123@gmail.com', '$argon2id$v=19$m=65536,t=3,p=1$jg0g6LHrZ13XelakUQbSLQ$MLPN5Ia/o/K3Njyd3+9GLUjf2z8bdL6YEA7Uw/nF0G8', 0, 0),
 	('250406084713q43urf', 'Nguyễn Tuấn Đạt G', '2025-10-15', 'phường 3, Bạc Liêu', '0989337266', 'ntdat1234@gmail.com', '$argon2id$v=19$m=65536,t=3,p=1$xABR1w02kzsMjNxvr/EL6w$zbznHXaEeKxbWCiHYLDLCJmvbumTXilGMC5wtcv2jos', 0, 0),
 	('250406093912S40xtY', 'Nguyễn Tuấn Đạt C', '2025-10-15', 'phường 3, Bạc Liêu', '0989337268', 'ntdat1236@gmail.com', '$argon2id$v=19$m=65536,t=3,p=1$cQp0/pPDlEaOrfWkxNONUA$tZHkjS33aINDxDG01Or4YY1WznUxjt4iPsrn6jG18fw', 0, 0),
@@ -665,7 +739,14 @@ INSERT INTO `User` (`user_id`, `user_name`, `date_of_birth`, `address`, `phone_n
 	('250407143917yKNgCm', 'Trần Kiến Quốc', '2025-10-15', 'phường 3, Bạc Liêu', '0989337769', 'ntdat1238@gmail.com', '$argon2id$v=19$m=65536,t=3,p=1$P/TKD0F1IRPpNZJeAtgz9g$LQkTYsw8qHMYKC03cVnGlDb9XQ2JldecaozR+tjeP1U', 0, 0),
 	('2504081421144zdkMV', 'Trần Kiến Trung', '2025-10-15', 'phường 3, Bạc Liêu', '0989337760', 'ntdat1231@gmail.com', '$2a$11$T.ryKjJixxdh9bVgkvGwReeGakjJvfxO3bDrU9fOBL1ypoDENusyG', 0, 0),
 	('2504081426024xJhng', 'Trần Kiến Trung', '2025-10-15', 'phường 3, Bạc Liêu', '0989337764', 'ntdat1233@gmail.com', '$2a$11$3FgnZCBPVyghqeeDzMq5EuZIcyLMzOszZdbWQ7gLt7SF3Du1zIbw6', 0, 0),
-	('250408142632ZyzD95', 'Trần Kiến Đăng', '2025-10-15', 'phường 3, Bạc Liêu', '0989327764', 'ntdat1533@gmail.com', '$2a$11$dfrP5/Z7yBh.0SAbk5nXBuo/GCoTKbouyBA5CrnJO9nwK5zZP/VLq', 0, 0);
+	('250408142632ZyzD95', 'Trần Kiến Đăng', '2025-10-15', 'phường 3, Bạc Liêu', '0989327764', 'ntdat1533@gmail.com', '$2a$11$dfrP5/Z7yBh.0SAbk5nXBuo/GCoTKbouyBA5CrnJO9nwK5zZP/VLq', 0, 0),
+	('250502092700UV4uT7', 'Trần Kiến Nhật', '2025-10-15', 'phường 3, Bạc Liêu', '0989325764', 'ntdat1633@gmail.com', '$2a$11$Fvfrl6ZlSwZjHIqp/30z2eQzrwG/nFW5sI/0NVd29ZjntNwym.pve', 0, 0),
+	('2505030904538OBRvu', 'Pham Gia Khang', '2025-10-15', 'phường 3, Bạc Liêu', '0989325765', 'ntdat1643@gmail.com', '$2a$11$45sxA8jsOvDJCih8GUhdAeSHQE2oo0DXfrRRzwCIjOeVHNRyULEtu', 0, 0),
+	('2505030905341xDrun', 'Pham Gia Huy', '2025-10-15', 'phường 3, Bạc Liêu', '0989325766', 'ntdat1644@gmail.com', '$2a$11$YJVsXBxlnTLycWj1bl7qhejcQofzExkBAKTtW41PXES0.WWzbvU2O', 0, 0),
+	('250503090548eVPUKK', 'Pham Gia Minh', '2025-10-15', 'phường 3, Bạc Liêu', '0989325767', 'ntdat1654@gmail.com', '$2a$11$wT7G.ABCLXwHq7ACAPC7ieyL02rdhPOvHM/AzGATwtcTPjJ7qIy7q', 0, 0),
+	('250503090605tzo6cs', 'Pham Gia Khải', '2025-10-15', 'phường 3, Bạc Liêu', '0984325768', 'ntdat1655@gmail.com', '$2a$11$RdpaQTnVI89dMH7hFAcC1.ROr1e.xH07AsEqig69TgevtqgQapDvW', 0, 0),
+	('250503090636qzFNhf', 'Pham Quốc Minh', '2025-10-15', 'phường 3, Bạc Liêu', '0984325769', 'ntdat1656@gmail.com', '$2a$11$cvVYHJzlCcD/T/73SPcMO.1cuFHcxYmU/KLVf7hH8XfvQY1GfI3sy', 0, 0),
+	('250503091203b53bu5', 'Phạm Gia Bảo', '2002-10-15', 'phường 2, Bạc Liêu', '0984325771', 'ntdat1658@gmail.com', '$2a$11$0AdyS5ZTK1bMwm39IAD7/OrjUlP/DJctRTGEs.CAtBXpe/5QqjWBS', 0, 0);
 
 -- Dumping structure for table E_commerce.UserOauth
 CREATE TABLE IF NOT EXISTS `UserOauth` (
@@ -695,6 +776,8 @@ CREATE TABLE IF NOT EXISTS `UserPhotoDetails` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table E_commerce.UserPhotoDetails: ~0 rows (approximately)
+INSERT INTO `UserPhotoDetails` (`user_id`, `img_id`) VALUES
+	('250406133245SAEAqD', 5);
 
 -- Dumping structure for table E_commerce.WebSite
 CREATE TABLE IF NOT EXISTS `WebSite` (

@@ -1,4 +1,4 @@
-using MySql.Data.MySqlClient;
+using MySqlConnector;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.EntityFrameworkCore;
 using E_commerce.Core.Exceptions;
@@ -212,7 +212,7 @@ namespace E_commerce.Infrastructure.repositories
                 using var connection = _databaseConnectionFactory.CreateConnection();
                 _User result = await connection.QueryFirstOrDefaultAsync<_User>(
                     UserQueries.GetOrCreateUserByEmail,
-                    new { email, user_name = name }
+                    new { email, name }
                 );
 
                 return result;
