@@ -35,9 +35,9 @@ namespace E_commerce.Api.Hubs
         //
 
 
-        //Kiểm nghiệm
+        //Kiểm nghiệm ra ssao
         public async Task GetInfor(string name){
             await Clients.All.SendAsync($"Ho ten:{name}, tuoi: 22"); 
         }
     }
-}
+} 
