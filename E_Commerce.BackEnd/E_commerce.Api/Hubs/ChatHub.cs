@@ -9,7 +9,6 @@ namespace E_commerce.Api.Hubs
 {
     public class ChatHub: Hub
     {
-
         /// <summary>
         /// Hàm này sẽ xử lý sự kiện khi người dùng kết nối đên hub.
         /// Phương thức này được gọi khi kết nối được thiết lập

@@ -9,7 +9,7 @@ namespace E_commerce.Infrastructure.repositories
 {
     public class MessageRepository: BaseRepository<_Message>, IMessageRepository
     {
-                /// <summary>
+        /// <summary>
         /// Hàm khởi tạo
         /// </summary>
         public MessageRepository(
@@ -20,7 +20,7 @@ namespace E_commerce.Infrastructure.repositories
 
         /// <summary>
         /// Kiểm tra tính hợp lệ của Department
-        /// </summary
+        /// </summary>
         public void ValidateMessage(_Message message){
             if(message == null || string.IsNullOrWhiteSpace(message.text))
                 throw new ValidationException("Thông tin tin nhắn không được thiếu xót");

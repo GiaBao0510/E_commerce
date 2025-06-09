@@ -2,7 +2,7 @@ using E_commerce.Core.Entities;
 
 namespace E_commerce.Application.Application
 {
-    public interface IGroupChatRepository: IRepository<_GroupChat>
+    public interface IGroupChatRepository : IRepository<_GroupChat>
     {
         /// <summary>
         /// Danh sách các cuộc hội thoại của người dùng dựa trên UserID
@@ -13,5 +13,13 @@ namespace E_commerce.Application.Application
         /// Danh sách các người dùng trong nhóm dựa trên ConversationID
         /// </summary>
         public Task<IReadOnlyList<_User>> GetUserByConversationID(string conversation_id);
+        
+        /// <summary>
+        /// Thêm người dùng vào nhóm chat
+        /// </summary>
+         
+        /// <summary>
+        /// Xóa người dùng ra khỏi nhóm chat
+        /// </summary>
     }
 }

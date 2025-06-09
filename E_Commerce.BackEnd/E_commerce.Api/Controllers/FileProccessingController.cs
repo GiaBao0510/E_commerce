@@ -19,7 +19,7 @@ namespace E_commerce.Api.Controllers
         [HttpPost("update-data-from-csv")]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(5_368_709_120)]       //5GB
-        [RequestTimeout(7200)]                  //2hours
+        [RequestTimeout(7200)]                  // Giữa kết nối đến 2 giờ
         [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -33,7 +33,7 @@ namespace E_commerce.Api.Controllers
         [HttpPost("update-data-from-tsv")]
         [Consumes("multipart/form-data")]
         [RequestSizeLimit(5_368_709_120)]       //5GB
-        [RequestTimeout(7200)]                  //2hours
+        [RequestTimeout(7200)]                  // Giữa kết nối đến 2 giờ
         [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]

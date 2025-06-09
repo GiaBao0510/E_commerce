@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 using E_commerce.Api.Authentication;
 using Microsoft.AspNetCore.Http.Features;
 using E_commerce.Api.Hubs;
+using Microsoft.AspNetCore.Http.Connections;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -250,7 +251,11 @@ app.UseAuthorization();
 
  
 //9. Endpoints
-app.MapHub<ChatHub>("/chat-hub"); //Map SignalR hub
+app.MapHub<ChatHub>("/chat-hub", options =>
+    {
+        options.Transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
+    }
+); //Map SignalR hub
 app.MapControllers(); //Map all controllers
 app.MapHealthChecks("/health"); //Map health check endpoint
 
