@@ -193,7 +193,7 @@ namespace E_commerce.Infrastructure.repositories
 
         /// <summary>
         /// Lấy danh sách các tin nhắn dựa trên Group Chat ID
-        /// </summary>
+        /// </summary> 
         public async Task<IReadOnlyList<_Message>> ListOfMessagesByGroupChatID(string group_id){
             try{
                 

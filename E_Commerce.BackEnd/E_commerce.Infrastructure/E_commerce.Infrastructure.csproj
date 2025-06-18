@@ -25,7 +25,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.oAuth" Version="2.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIDConnect" Version="8.0.8" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.8" />
-    <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
+    <PackageReference Include="StackExchange.Redis" Version="2.8.16" /> 
     <PackageReference Include="CloudinaryDotNet" Version="1.26.2" />
     <PackageReference Include="Mailjet.Api" Version="3.0.0" />
     <PackageReference Include="RestSharp" Version="112.1.0" />

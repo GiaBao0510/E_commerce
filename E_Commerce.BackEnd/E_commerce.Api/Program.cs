@@ -16,6 +16,7 @@ using E_commerce.Api.Authentication;
 using Microsoft.AspNetCore.Http.Features;
 using E_commerce.Api.Hubs;
 using Microsoft.AspNetCore.Http.Connections;
+using E_commerce.Application;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -43,8 +44,9 @@ builder.WebHost.ConfigureKestrel(options =>
 //Configura Log4net.
 XmlConfigurator.Configure(new FileInfo("log4net.config"));
 
-//injecting services => Defined under CleanArch.Infrastructure.Project
+//Dependency Injection
 builder.Services.RegisterServices(builder.Configuration);
+builder.Services.AddApplicationServices();
 
 // Add services to the container.
 builder.Services
@@ -255,7 +257,10 @@ app.MapHub<ChatHub>("/chat-hub", options =>
     {
         options.Transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
     }
-); //Map SignalR hub
+)
+.RequireAuthorization(); // Yêu cầu xác thực cho Hub SignalR
+
+
 app.MapControllers(); //Map all controllers
 app.MapHealthChecks("/health"); //Map health check endpoint
 

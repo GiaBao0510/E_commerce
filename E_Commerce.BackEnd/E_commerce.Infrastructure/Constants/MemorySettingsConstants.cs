@@ -10,7 +10,7 @@ namespace E_commerce.Infrastructure.Constants
         public const int MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // Kích thước tệp tối đa cho phép (1GB)
         public const int MAX_QUEUE_LENGTH = 10000; // Độ dài hàng đợi tối đa cho các tác vụ xử lý dữ liệu
 
-        #region MEMORY_MANAGEMENT
+        #region MEMORY_MANAGEMENT 
         #endregion
 
         #region DATABASE_OPTIMIZATION

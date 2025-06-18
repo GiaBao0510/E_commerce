@@ -30,12 +30,18 @@ public class FileDataProccessingWithDatabase : IFileDataProccessingWithDatabase{
     private readonly ILogger _logger;
 
     //Hàm khởi tạo
-    public FileDataProccessingWithDatabase(IConfiguration configuration, ILogger logger){
+    public FileDataProccessingWithDatabase(
+	    IConfiguration configuration, 
+	    ILogger logger
+	){
         _configuration = configuration;
         _logger = logger;
     }
 
-    public async Task<bool> Insert_CSV_fileDataIntoDatabase(IFormFile file, string tableName){
+    public async Task<bool> Insert_CSV_fileDataIntoDatabase(
+	    IFormFile file, 
+	    string tableName
+	){
 
         //Kiểm tra tệp tin không được rỗng
         if(file == null || file.Length == 0)

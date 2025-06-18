@@ -11,10 +11,14 @@
             "id": "add9c0c7645272f2",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "E_Commerce.BackEnd/Docs/Google_Oauth2.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "Google_Oauth2"
             }
           }
         ]
@@ -160,11 +164,13 @@
   },
   "active": "add9c0c7645272f2",
   "lastOpenFiles": [
+    "E_Commerce.BackEnd/Docs/Handling_File.md",
+    "E_Commerce.BackEnd/Docs/Google_Oauth2.md",
+    "E_Commerce.BackEnd/README.md",
     "E_Commerce.BackEnd/Docs/Handling_File.markdown",
     "E_Commerce.FrontEnd/e-commerce-client-react/src/App.jsx",
     "E_Commerce.BackEnd/E_commerce.Core/obj/5c0435b0-e50f-4a41-aea1-25b2f626ebf6.tmp",
     "E_Commerce.BackEnd/E_commerce.Api/README.md",
-    "E_Commerce.BackEnd/Docs/Google_Oauth2.md",
     "E_Commerce.BackEnd/Docs",
     "E_Commerce.BackEnd/E_commerce.Infrastructure/Services/impl/CloudinaryServices.cs",
     "E_Commerce.BackEnd/E_commerce.Api/obj/932ef783-b739-4a1e-b867-a69b2d04bfa6.tmp",
@@ -172,8 +178,6 @@
     "E_Commerce.BackEnd/E_commerce.Infrastructure/obj/48726841-87e5-46bd-b781-30bb4cc40392.tmp",
     "E_Commerce.BackEnd/E_commerce.Infrastructure/Services/ICloudinaryServices.cs",
     "E_Commerce.BackEnd/E_commerce.Infrastructure/Services/impl/ICloudinaryService.cs",
-    "E_Commerce.BackEnd/E_commerce.Api/Authentication/CustomeAuthenticationHandler.cs",
-    "E_Commerce.BackEnd/E_commerce.Infrastructure/README.md",
-    "E_Commerce.BackEnd/README.md"
+    "E_Commerce.BackEnd/E_commerce.Infrastructure/README.md"
   ]
 }
