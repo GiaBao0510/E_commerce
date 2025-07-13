@@ -84,7 +84,7 @@ namespace E_commerce.Infrastructure.repositories
 
                 //Thêm
                 var message = await Connection.ExecuteAsync(
-                    MessageQueries.cretae,
+                    MessageQueries.cretae, 
                     entity,
                     transaction: Transaction
                 );
@@ -138,22 +138,25 @@ namespace E_commerce.Infrastructure.repositories
                 throw new DetailsOfTheException(ex, "Lỗi khi xóa thông tin tin nhắn");
             }
         }
-        public override async Task<string> PatchAsync(string id, JsonPatchDocument<_Message> patchDoc){
-            
-            if(string.IsNullOrWhiteSpace(id))
-                    throw new ValidationException("ID không được bỏ trống");
+        
+        public override async Task<string> PatchAsync(string id, JsonPatchDocument<_Message> patchDoc)
+        {
 
-            if(patchDoc == null)
-                throw new ValidationException("Thông tin cập nhật không được bỏ trống");    
-            
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ValidationException("ID không được bỏ trống");
+
+            if (patchDoc == null)
+                throw new ValidationException("Thông tin cập nhật không được bỏ trống");
+
             var message = await GetByIdAsync(id);
-            if(message == null)
+            if (message == null)
                 throw new ResourceNotFoundException($"Không tìm thấy ID tin nhắn: {id}");
 
             //Áp dụng các thay đổi
             patchDoc.ApplyTo(message);
 
-            try{
+            try
+            {
                 var result = await Connection.ExecuteAsync(
                     MessageQueries.UpdatePatchByID,
                     message,
@@ -161,7 +164,8 @@ namespace E_commerce.Infrastructure.repositories
                 );
                 return "SUCCESS";
             }
-            catch(Exception ex) when (!(ex is ECommerceException) ){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error("Lỗi khi cập thông tin tin nhắn", ex);
                 throw new DetailsOfTheException(ex, "Lỗi khi xóa thông tin tin nhắn");
             }

@@ -2,8 +2,9 @@ namespace E_commerce.Infrastructure.Templates.Email
 {
     public static class VerificationForm
     {
-        static VerificationForm(){ }
-        public static string OTPcodeVerificationForm(string otp){
+        static VerificationForm() { }
+        public static string OTPcodeVerificationForm_Mail(string otp)
+        {
             return $@"
                 <!DOCTYPE html>
                 <html lang='vi'>
@@ -140,6 +141,11 @@ namespace E_commerce.Infrastructure.Templates.Email
                     </div>
                 </body>
                 </html>";
+        }
+
+        public static string OTPcodeVerificationForm_SMS(string otp)
+        {
+            return $@" Ma OTP của bạn: {otp}, ma co hieu luc 5 phut. Khong chia se ma voi bat ky ai.";             
         }
     }
 }

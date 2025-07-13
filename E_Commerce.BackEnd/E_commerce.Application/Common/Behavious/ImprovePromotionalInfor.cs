@@ -11,8 +11,8 @@ namespace E_commerce.Application.Common.Behavious
     {
         #region ===[Private Fields]===
         private readonly ILogger _logger;
-        private readonly string modelName;
-        private readonly string ApiKey;
+        private readonly ChatClient _chatClient;
+
         #endregion
 
         /// <summary>
@@ -24,8 +24,10 @@ namespace E_commerce.Application.Common.Behavious
         )
         {
             _logger = logger;
-            modelName = configuration["AI_Models:OpenAI:Models:GPT_4o_MINI"];
-            ApiKey = configuration["AI_Models:OpenAI:ApiKey"];
+
+            var modelName = configuration["AI_Models:OpenAI:Models:GPT_4o_MINI"];
+            var ApiKey = configuration["AI_Models:OpenAI:ApiKey"];
+            _chatClient = new ChatClient(modelName, ApiKey); // Khởi tạo client chat với model và API key
         }
 
         /// <summary>
@@ -40,12 +42,9 @@ namespace E_commerce.Application.Common.Behavious
         {
             try
             {
-                var client = new ChatClient(modelName, ApiKey);         // Khởi tạo client chat với model và API key
-                string inputWithTheme = $"'{input}'" + ThemeSampleToImprove.ImproveProductTypeInfor; // Kết hợp đầu vào với mẫu cải thiện mô tả loại sản phẩm
-                var response = await client.CompleteChatAsync(inputWithTheme);   // Gửi yêu cầu hoàn thành chat với đầu vào
+                string inputWithTheme = string.Format(ThemeSampleToImprove.ImprovePromotionalInfor, input); // Kết hợp đầu vào với mẫu cải thiện mô tả loại sản phẩm
+                var response = await _chatClient.CompleteChatAsync(inputWithTheme);   // Gửi yêu cầu hoàn thành chat với đầu vào
 
-                _logger.Info($"Input: {inputWithTheme}");
-                _logger.Info($"Response: {response.Value.Content[0].Text}");
                 return response.Value.Content[0].Text;
             }
             catch (Exception ex) when (!(ex is ECommerceException))

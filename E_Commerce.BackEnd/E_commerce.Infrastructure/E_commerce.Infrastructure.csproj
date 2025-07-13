@@ -31,6 +31,7 @@
     <PackageReference Include="RestSharp" Version="112.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.1.0" />
     <PackageReference Include="Microsoft.AspNet.SignalR" Version="2.4.3" />
+    <PackageReference Include="Vonage" Version="8.0.3" />
   </ItemGroup>
 
   <ItemGroup>

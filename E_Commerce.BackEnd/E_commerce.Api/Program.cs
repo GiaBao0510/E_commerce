@@ -108,7 +108,7 @@ builder.Services.AddStackExchangeRedisCache(options => {
 }); 
 #endregion
 
-#region =====[SignalR]=======
+#region =====[SignalR]======= 
 builder.Services.AddSignalR();
 #endregion
 
@@ -255,7 +255,7 @@ app.UseAuthorization();
 //9. Endpoints
 app.MapHub<ChatHub>("/chat-hub", options =>
     {
-        options.Transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
+        options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents;
     }
 )
 .RequireAuthorization(); // Yêu cầu xác thực cho Hub SignalR

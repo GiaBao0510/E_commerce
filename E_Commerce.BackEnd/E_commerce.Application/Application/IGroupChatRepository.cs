@@ -15,11 +15,25 @@ namespace E_commerce.Application.Application
         public Task<IReadOnlyList<_User>> GetUserByConversationID(string conversation_id);
         
         /// <summary>
-        /// Thêm người dùng vào nhóm chat
+        /// Tạo cuộc trò chuyện cá nhân giữa 2 người
         /// </summary>
-         
+        //public Task<>
+
         /// <summary>
-        /// Xóa người dùng ra khỏi nhóm chat
+        /// Tạo nhóm chat giữa 3 người trở lên
+        /// </summary>
+
+
+        /// <summary>
+        /// Kiểm tra người dùng có trong nhóm chat hay không
+        /// </summary>
+
+        /// <summary>
+        /// thêm người dùng vào nhóm chat
+        /// </summary>
+        
+        /// <summary>
+        /// Xóa người dùng khỏi nhóm chat
         /// </summary>
     }
 }

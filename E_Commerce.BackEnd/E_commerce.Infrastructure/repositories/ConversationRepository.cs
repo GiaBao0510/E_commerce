@@ -190,7 +190,7 @@ namespace E_commerce.Infrastructure.repositories
                 if(result <= 0)
                     throw new ResourceNotFoundException($"Conversation: {id}");
 
-                return "SUCCESS";
+                return "SUCCESS"; 
             }
             catch (MySqlException ex)
             {

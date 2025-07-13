@@ -14,6 +14,9 @@ namespace E_commerce.Infrastructure.Services
         //Tạo Access token
         public Task<TokenDTO> GenerateToken(AccountInforDTO accountInforDTO, int time = 24);
 
+        //Tạo Refresh token
+        public TokenDTO GenerateRefreshToken();
+
         //Thu hồi access token
         //public Task<bool> RevokeAccessToken(string token);
 

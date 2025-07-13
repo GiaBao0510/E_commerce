@@ -18,17 +18,17 @@ namespace E_commerce.Api.Controllers
         public OTPAuthenticationController(IOTPAuthenServices otpAuthenServices) =>
             _otpAuthenServices = otpAuthenServices ?? throw new ArgumentNullException(nameof(otpAuthenServices));
         
-        // Hàm gửi mã otp đến mail - mailjet
-        [HttpPost("mailjet/send-otp-email")]
+        // Hàm gửi mã otp thông qua sms - vonage
+        [HttpPost("sms/send-otp-phone")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> AddOTP_EmailToRedis_Mailjet([FromQuery] string email){
-            bool result = await _otpAuthenServices.AddOTP_EmailToRedis_Mailjet(email);
-            return Success(result, "Gửi mã OTP thành công"); 
+        public async Task<IActionResult> AddOTP_PhoneNumToRedis_Vonage([FromQuery] string phoneNume){
+            await _otpAuthenServices.AddOTP_PhoneNumToRedis_Vonage(phoneNume);
+            return Success(true, "Gửi mã OTP thành công"); 
         }
 
         // Hàm gửi mã otp đến mail - mailtrap
@@ -40,8 +40,8 @@ namespace E_commerce.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status429TooManyRequests)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> AddOTP_EmailToRedis_Mailtrap([FromQuery] string email){
-            bool result = await _otpAuthenServices.AddOTP_EmailToRedis_Mailtrap(email);
-            return Success(result, "Gửi mã OTP thành công"); 
+            await _otpAuthenServices.AddOTP_EmailToRedis_Mailtrap(email);
+            return Success(true, "Gửi mã OTP thành công"); 
         }
 
         // Hàm xác thực mã otp từ mail

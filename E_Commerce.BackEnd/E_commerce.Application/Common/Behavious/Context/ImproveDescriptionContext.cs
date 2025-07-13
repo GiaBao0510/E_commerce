@@ -29,7 +29,6 @@ namespace E_commerce.Application.Common.Behavious.Context
 
                 var strategy = _strategyFactory.GetImproveDescriptionStrategy(topicType);
 
-                _logger.Info($"Đang cải thiện mô tả với loại chủ đề: {topicType}");
                 return await strategy.ImproveDescription_ByGPT(input);
             }
             catch (Exception ex) when (!(ex is ECommerceException))

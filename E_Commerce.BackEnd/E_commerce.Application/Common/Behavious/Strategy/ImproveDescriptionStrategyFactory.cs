@@ -1,16 +1,13 @@
-
-
 using E_commerce.Application.Application;
 using E_commerce.Application.Common.Interface;
 using E_commerce.Core.Exceptions;
 
 namespace E_commerce.Application.Common.Behavious.Strategy
 {
-    public class ImproveDescriptionStrategyFactory : IImproveDescriptionStrategyFactory, IDisposable
+    public class ImproveDescriptionStrategyFactory : IImproveDescriptionStrategyFactory
     {
         private readonly ILogger _logger;
         private readonly IEnumerable<IImproveDescription> _strategies;
-        private bool _disposed = false;
 
         //Hàm khởi tạo
         public ImproveDescriptionStrategyFactory(
@@ -22,7 +19,7 @@ namespace E_commerce.Application.Common.Behavious.Strategy
             _logger = logger;
         }
 
-        public IImproveDescription GetImproveDescriptionStrategy(string topicType)
+        public IImproveDescription GetImproveDescriptionStrategy(string topicType) 
         {
             try
             {
@@ -41,15 +38,6 @@ namespace E_commerce.Application.Common.Behavious.Strategy
         public IEnumerable<string> GetAvailableTopicTypes()
         {
             return _strategies.Select(s => s.TopicType);
-        }
-
-        public void Dispose()
-        {
-            // Giải phóng tài nguyên nếu cần thiết
-            if (!_disposed)
-            {
-                _disposed = true;
-            }
         }
     }
 }

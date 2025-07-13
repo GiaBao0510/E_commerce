@@ -3,14 +3,30 @@ namespace E_commerce.Application.Constants
     public static class ThemeSampleToImprove
     {
         public static string ImproveProductDescription =>
-            @". Đây là đoạn văn mô tả sản phẩm trên, bạn hãy giúp tôi cải thiện văn bản trên sau cho 
-            người dùng có thể hiểu rõ hơn về sản phẩm này, và có thể đưa ra quyết định mua hàng";
+            @" Bạn là một chuyên gia marketing sản phẩm. 
+            Hãy cải thiện mô tả sản phẩm sau để hấp dẫn khách hàng hơn:
+            Mô tả sản phẩm gốc: '{0}'
+            Yêu cầu:
+            - Ngắn gọn, súc tích
+            - Highlight điểm mạnh
+            - Tạo cảm giác cần thiết";
+        
         public static string ImprovePromotionalInfor =>
-            @". Đây là đoạn văn mô tả chương trình khuyến mãi, bạn hãy giúp tôi cải thiện văn bản trên sau cho 
-            người dùng có thể hiểu rõ hơn về chương trình khuyến mãi này, và có thể đưa ra quyết định mua hàng";
+            @" Bạn là một chuyên gia marketing sản phẩm. 
+            Hãy cải thiện thông tin khuyến mãi sau để hấp dẫn khách hàng hơn:
+            Thông tin khuyến mãi gốc: '{0}'
+            Yêu cầu:
+            - Ngắn gọn, súc tích
+            - Highlight điểm mạnh
+            - Tạo cảm giác cần thiết";
 
         public static string ImproveProductTypeInfor =>
-            @". Đây là đoạn văn mô tả loại sản phẩm, bạn hãy giúp tôi cải thiện văn bản trên sau cho 
-            người dùng có thể hiểu rõ hơn về loại sản phẩm này, và có thể đưa ra quyết định mua hàng";
+            @" Bạn là một chuyên gia marketing sản phẩm.
+            Hãy cải thiện thông tin loại sản phẩm sau để hấp dẫn khách hàng hơn:
+            Thông tin loại sản phẩm gốc: '{0}'
+            Yêu cầu:
+            - Ngắn gọn, súc tích
+            - Highlight điểm mạnh
+            - Tạo cảm giác cần thiết";
     }
 }

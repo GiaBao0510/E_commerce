@@ -13,10 +13,11 @@ namespace E_commerce.Application
             services.AddSingleton<IImproveDescription, ImproveProductDescription>();
             services.AddSingleton<IImproveDescription, ImprovePromotionalInfor>();
             services.AddSingleton<IImproveDescription, ImproveProductTypeDescription>();
+
             services.AddScoped<IImproveDescriptionStrategyFactory, ImproveDescriptionStrategyFactory>();
             services.AddScoped<IImproveDescriptionContext, ImproveDescriptionContext>();
 
-            return services;
+            return services; 
         }
     }
 }

@@ -10,57 +10,19 @@ namespace E_commerce.Infrastructure.Services.impl
     public class RedisServices : IRedisServices
     {
         #region ====[Private Fields]====
-        private readonly ConnectionMultiplexer _redis;
+        private readonly IConnectionMultiplexer _redis;
         private readonly IDatabase _db;
-        private IConfiguration _configuration { get; }
         private readonly ILogger _logger;
         #endregion
 
         /// <summary>
-        /// Hàm khởi tạo
+        /// Hàm khởi tạo 
         /// </summary>
-        public RedisServices(IConfiguration configuration, ILogger logger)
+        public RedisServices(IConnectionMultiplexer redis, ILogger logger)
         {
-            _configuration = configuration;
             _logger = logger;
-
-            try
-            {
-                var RedisHost = configuration["Database:Redis:Host"];
-                var redisPassword = configuration["Database:Redis:Password"];
-
-                _logger.Info($"Khởi tạo kết nối với Redis tại: {RedisHost}");
-
-                //Thiết lập cấu hình
-                var option = new ConfigurationOptions
-                {
-                    AbortOnConnectFail = false,                  //Không ngừng cố gắng kết nối lại khi không thành công
-                    ConnectTimeout = 10000,                       //Thời gian chờ kết nối được tính bằng giây (nếu không được thì ném lỗi)
-                    SyncTimeout = 10000,                          //Thời gian tối đa (tính bằng miliseconds) cho các lệnh đồng bộ (blocking) khi gửi đến redis chờ phản hồi
-                    AsyncTimeout = 10000,                        // Thời gian tối đa (tính bằng miliseconds) cho các lệnh không đồng bộ (non-blocking) khi gửi đến redis chờ phản hồi
-                    ConnectRetry = 5,                            //Số lần thử lại kết nối nếu  lần đầu thất bại
-                    KeepAlive = 60,                              //Redis sẽ gửi ping signal sau mỗi 60 giây để luôn gữi kết nối luôn mở
-                    ReconnectRetryPolicy = new ExponentialRetry(1000, 10000),//Tự động kết nối lại sau mỗi 1 giây nếu không thành công
-                    AllowAdmin = true,                           //Cho phép Client thực hiện gửi các lệnh quản trị Redis
-                    Ssl = false                                  //Dùng SSL hay không (true/false) để mã hóa kết nối với redis. (Nếu Redis nằm trên cục bộ thì nên dặt false)
-                };
-
-                //Thêm end point
-                option.EndPoints.Add(RedisHost); // Cổng mặc định của Redis là 6379
-
-                //Thêm password
-                option.Password = redisPassword;
-
-                _logger.Info($"Thử kết nối với Redis tại: {RedisHost}....");
-                _redis = ConnectionMultiplexer.Connect(option);
-                _db = _redis.GetDatabase();
-                _logger.Info($"Thiết lập kết nối với Redis thành công tại: {RedisHost}");
-            }
-            catch (Exception ex) when (!(ex is ECommerceException))
-            {
-                _logger.Error($"Lỗi khi khởi tạo kết nối Redis: {ex.Message}", ex);
-                throw;
-            }
+            _redis = redis;
+            _db = redis.GetDatabase();
         }
 
         #region ====[Common ingredient]====
@@ -68,12 +30,19 @@ namespace E_commerce.Infrastructure.Services.impl
         {
             try
             {
-
                 // Nếu không kết nối được thì thực hiện kết nối lại
                 if (!_redis.IsConnected)
                     await _redis.GetDatabase().PingAsync();
 
                 string data = value is string str ? str : JsonSerializer.Serialize(value);
+
+                string streamKey = $"Chat:message:stream"; // Tạo khóa stream tương ứng với khóa chính
+                var entries = new NameValueEntry[]{
+                    new NameValueEntry("text ", "Dao nay sao roi"),
+                    new NameValueEntry("from_number ", "20251254"),
+                    new NameValueEntry("conversation_id", 5)
+                };
+                RedisValue streamId = await _db.StreamAddAsync(streamKey, entries);
 
                 return await _db.StringSetAsync(key, data);
             }

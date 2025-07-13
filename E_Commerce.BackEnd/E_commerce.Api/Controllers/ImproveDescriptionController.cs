@@ -3,7 +3,7 @@ using E_commerce.Application.Common.Interface;
 using E_commerce.Application.DTOs.Requests;
 using Microsoft.AspNetCore.Mvc;
 
-namespace E_commerce.Api.Controllers
+namespace E_commerce.Api.Controllers 
 {
     //[Authorize]
     public class ImproveDescriptionController : BaseApiController

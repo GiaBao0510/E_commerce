@@ -10,7 +10,7 @@ using MySqlConnector;
 
 namespace E_commerce.Infrastructure.Services.impl
 {
-    public class AccountServices: IAccountServices
+    public class AccountServices : IAccountServices
     {
         #region ======[Private property]=====
         private readonly ILogger _logger;
@@ -37,11 +37,13 @@ namespace E_commerce.Infrastructure.Services.impl
             _tokenService = tokenService ?? throw new ArgumentNullException(nameof(tokenService));
             _tokenListService = tokenListService ?? throw new ArgumentNullException(nameof(tokenListService));
         }
-        
+
         //Kiểm tra tài khoản có bị khóa không
-        public async Task<bool> CheckIfAccountIsBlocked(string phone_num){
-            try{
-               
+        public async Task<bool> CheckIfAccountIsBlocked(string phone_num)
+        {
+            try
+            {
+
                 using var connection = _connectionFactory.CreateConnection();
                 var result = await connection.ExecuteScalarAsync<int>(
                     AccountQueries.CheckIfAccountIsBlocked,
@@ -50,21 +52,25 @@ namespace E_commerce.Infrastructure.Services.impl
 
                 return result > 0;
             }
-            catch(MySqlException ex){
+            catch (MySqlException ex)
+            {
                 _logger.Error($"Database error when Check If Account Is Blocked: {phone_num}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
                 throw new DetailsOfTheMysqlException(ex);
             }
-            catch(Exception ex) when (!(ex is ECommerceException)){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error($"Error wher check if account is blocked: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
         }
 
         //Kiểm tra tài khoản có bị xóa không
-        public async Task<bool> CheckIfAccountIsDeleted(string phone_num){
-            try{
+        public async Task<bool> CheckIfAccountIsDeleted(string phone_num)
+        {
+            try
+            {
                 using var connection = _connectionFactory.CreateConnection();
-                
+
                 var result = await connection.ExecuteScalarAsync<int>(
                     AccountQueries.CheckIfAccountIsBlocked,
                     new { phone_num = phone_num }
@@ -72,94 +78,87 @@ namespace E_commerce.Infrastructure.Services.impl
 
                 return result > 0;
             }
-            catch(MySqlException ex){
+            catch (MySqlException ex)
+            {
                 _logger.Error($"Database error when Check If Account Is Blocked: {phone_num}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
                 throw new DetailsOfTheMysqlException(ex);
             }
-            catch(Exception ex) when (!(ex is ECommerceException)){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error($"Error when check if account is blocked: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
         }
 
         //Đăng nhập tài khoản
-        public async Task<(TokenDTO,TokenDTO)> Login(LoginDTO login){
-            try{
-
+        public async Task<(TokenDTO, TokenDTO)> Login(LoginDTO login)
+        {
+            try
+            { 
                 //Kiểm tra đầu vào
-                if(string.IsNullOrEmpty(login.phone_num) || string.IsNullOrEmpty(login.pass_word))
+                if (string.IsNullOrEmpty(login.phone_num) || string.IsNullOrEmpty(login.pass_word))
                     throw new ValidationException("Tài khoản hoặc mật khẩu không được để trống!");
-                
+
                 //Kiểm tra lấy số điện thoại, mật khẩu đã băm và UID người dùng dựa trên thông tin đầu vào
                 using var connection = _connectionFactory.CreateConnection();
                 AccountInforDTO result = await connection.QueryFirstOrDefaultAsync<AccountInforDTO>(
                     AccountQueries.CheckIfAccountExists,
-                    new {login.phone_num }
+                    new { login.phone_num }
                 );
 
                 //Kiểm tra null - Tài khoản không tồn tại
-                if(result == null)
-                    throw new ResourceNotFoundException($"Tài khoản {login.phone_num} không tồn tại!");
+                ValidateAccount(result, login.phone_num);
 
-                //Kiểm tra tài khoản có bị khóa không
-                if(result.is_block == 1)
-                    throw new ResourceNotFoundException($"Tài khoản {login.phone_num} đã bị khóa!");
+                //Kiểm tra mật khẩu có trùng khớp không - asynchronously
+                bool isPwdCorrect = await Task.Run(() => 
+                    BCrypt.Net.BCrypt.Verify(login.pass_word, result.pass_word));
 
-                //Kiểm tra tài khoản có bị xóa không
-                if(result.is_delete == 1)
-                    throw new ResourceNotFoundException($"Tài khoản {login.phone_num} đã bị xóa!");
-
-                //Kiểm tra mật khẩu có trùng khớp không
-                bool isPwdCorrect = BCrypt.Net.BCrypt.Verify( login.pass_word, result.pass_word);
-                if(!isPwdCorrect)
+                if (!isPwdCorrect)
                     throw new ValidationException("Mật khẩu không đúng!");
-                
-                //Tạo access token & refreshtoken dựa trên người dùng (task song song)
-                var accessTokenTask =  _tokenService.GenerateToken(result, 3);
-                var refreshTokenTask =  _tokenService.GenerateToken(result, 24 * 30); //Thời gian hết hạn là 30 ngày
-                await Task.WhenAll(accessTokenTask, refreshTokenTask);
-                
-                var accesstoken = accessTokenTask.Result;
-                var refreshtoken = refreshTokenTask.Result;
 
-                double expiration = (refreshtoken.expiration - DateTime.UnixEpoch).TotalSeconds; //Thời gian hết hạn của refreshtoken 
+                //Tạo access token & refreshtoken dựa trên người dùng (task song song)
+                var accessToken = await _tokenService.GenerateToken(result, 3);
+                var refreshToken = _tokenService.GenerateRefreshToken(); //Thời gian hết hạn là 30 ngày
 
                 //Lưu accesstoken & refresh token vào trong whiteList
-                double accesstokenScore = CustomFormat.ConvertDateTimeToUnixTimestamp(accesstoken.expiration),
-                        refreshtokenScore = CustomFormat.ConvertDateTimeToUnixTimestamp(refreshtoken.expiration);
+                double accesstokenScore = CustomFormat.ConvertDateTimeToUnixTimestamp(accessToken.expiration),
+                        refreshtokenScore = CustomFormat.ConvertDateTimeToUnixTimestamp(refreshToken.expiration);
 
                 await Task.WhenAll(
-                    _tokenListService.AddTokenToSortedSet( accesstoken.token, accesstokenScore),
-                    _tokenListService.AddTokenToSortedSet( refreshtoken.token, refreshtokenScore)
+                    _tokenListService.AddTokenToSortedSet(accessToken.token, accesstokenScore),
+                    _tokenListService.AddTokenToSortedSet(refreshToken.token, refreshtokenScore)
                 );
-               
 
                 //Chỉ gửi accessToken 
-                return (accesstoken, refreshtoken);
-                
-            }catch(MySqlException ex){
+                return (accessToken, refreshToken);
+            }
+            catch (MySqlException ex)
+            {
                 _logger.Error($"Database error when login:  Error Number: {ex.Number}, Message:{ex.Message}", ex);
                 throw new DetailsOfTheMysqlException(ex);
             }
-            catch(Exception ex) when (!(ex is ECommerceException)){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error($"Error when login: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
         }
-        
+
         //Đăng ký
         //Đăng xuất
         //Lấy thông tin tài khoản
-        
+
         // Xóa tài khoản
-        public async Task<bool> DeleteAccount(string user_id){
-            try{
-                
+        public async Task<bool> DeleteAccount(string user_id)
+        {
+            try
+            {
+
                 //Kiểm tra tài khoản có tồn tại không
                 await _unitOfWork.users.IsUserIdExists(user_id);
 
                 using var connection = _connectionFactory.CreateConnection();
-                
+
                 var result = await connection.ExecuteScalarAsync<int>(
                     AccountQueries.DeleteAccount,
                     new { user_id }
@@ -167,11 +166,13 @@ namespace E_commerce.Infrastructure.Services.impl
 
                 return result > 0;
             }
-            catch(MySqlException ex){
+            catch (MySqlException ex)
+            {
                 _logger.Error($"Database error when Delete Account: {user_id}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
                 throw new DetailsOfTheMysqlException(ex);
             }
-            catch(Exception ex) when (!(ex is ECommerceException)){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error($"Error wher delete account: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
@@ -184,14 +185,16 @@ namespace E_commerce.Infrastructure.Services.impl
         // }
 
         //Khôi phục tài khoản
-        public async Task<bool> RecoverAccount(string user_id){
-            try{
-                
+        public async Task<bool> RecoverAccount(string user_id)
+        {
+            try
+            {
+
                 //Kiểm tra tài khoản có tồn tại không
                 await _unitOfWork.users.IsUserIdExists(user_id);
 
                 using var connection = _connectionFactory.CreateConnection();
-                
+
                 var result = await connection.ExecuteScalarAsync<int>(
                     AccountQueries.RecoverAccount,
                     new { user_id }
@@ -199,79 +202,107 @@ namespace E_commerce.Infrastructure.Services.impl
 
                 return result > 0;
             }
-            catch(MySqlException ex){
+            catch (MySqlException ex)
+            {
                 _logger.Error($"Database error when Delete Account: {user_id}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
                 throw new DetailsOfTheMysqlException(ex);
             }
-            catch(Exception ex) when (!(ex is ECommerceException)){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error($"Error wher delete account: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
         }
 
         //Mở khóa tài khoản
-        public async Task<bool> UnlockAccount(string user_id){
-            try{
-                
+        public async Task<bool> UnlockAccount(string user_id)
+        {
+            try
+            {
+
                 //Kiểm tra tài khoản có tồn tại không
                 await _unitOfWork.users.IsUserIdExists(user_id);
 
                 using var connection = _connectionFactory.CreateConnection();
-                
+
                 var result = await connection.ExecuteScalarAsync<int>(
                     AccountQueries.UnlockAccount,
                     new { user_id }
                 );
- 
+
                 return result > 0;
             }
-            catch(MySqlException ex){
+            catch (MySqlException ex)
+            {
                 _logger.Error($"Database error when Delete Account: {user_id}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
                 throw new DetailsOfTheMysqlException(ex);
             }
-            catch(Exception ex) when (!(ex is ECommerceException)){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error($"Error wher delete account: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
         }
 
         //Thay đổi mật khẩu
-        public async Task<bool> ChangePassword(string user_id, ChangePasswordDTO changePasswordDTO){
-            try{
-                
+        public async Task<bool> ChangePassword(string user_id, ChangePasswordDTO changePasswordDTO)
+        {
+            try
+            {
+
                 //Lấy mật khẩu đã băm dựa trên ID người dùng
                 string HashPassword = await _unitOfWork.users.GetHashedPasswordByUserID(user_id);
 
                 //Kiểm tra đầu vào không được rỗng
-                if(string.IsNullOrEmpty(changePasswordDTO.old_pwd) || string.IsNullOrEmpty(changePasswordDTO.new_pwd))
+                if (string.IsNullOrEmpty(changePasswordDTO.old_pwd) || string.IsNullOrEmpty(changePasswordDTO.new_pwd))
                     throw new ValidationException("Mật khẩu không được để trống!");
 
                 //Kiểm tra mật khẩu cũ có đúng không
-                bool isPasswordCorrect = BCrypt.Net.BCrypt.Verify( changePasswordDTO.old_pwd, HashPassword);
+                bool isPasswordCorrect = BCrypt.Net.BCrypt.Verify(changePasswordDTO.old_pwd, HashPassword);
 
-                if(!isPasswordCorrect)
+                if (!isPasswordCorrect)
                     throw new ValidationException("Mật khẩu cũ không đúng!");
-                
+
                 //Cập nhật lại mật khẩu mới
                 HashPassword = BCrypt.Net.BCrypt.HashPassword(changePasswordDTO.new_pwd);
                 using var connection = _connectionFactory.CreateConnection();
                 var result = await connection.ExecuteScalarAsync<int>(
                     AccountQueries.ChangePassword,
-                    new { 
-                        user_id, 
-                        new_pass_word = HashPassword 
-                    } 
+                    new
+                    {
+                        user_id,
+                        new_pass_word = HashPassword
+                    }
                 );
 
                 return result > 0;
-            }catch(MySqlException ex){
+            }
+            catch (MySqlException ex)
+            {
                 _logger.Error($"Database error when Delete Account: {user_id}, Error Number: {ex.Number}, Message:{ex.Message}", ex);
                 throw new DetailsOfTheMysqlException(ex);
             }
-            catch(Exception ex) when (!(ex is ECommerceException)){
+            catch (Exception ex) when (!(ex is ECommerceException))
+            {
                 _logger.Error($"Error wher delete account: {ex.Message}", ex);
                 throw new DetailsOfTheException(ex);
             }
         }
+
+        //Xác thực tài khoản
+        #region ======[Private method]=====
+        private void ValidateAccount(AccountInforDTO account, string phonenum)
+        {
+            if (account == null)
+                throw new ResourceNotFoundException($"Tài khoản {phonenum} không tồn tại!");
+
+            if (account.is_block == 1)
+                throw new ResourceNotFoundException($"Tài khoản {phonenum} đã bị khóa!");
+
+            if (account.is_delete == 1)
+                throw new ResourceNotFoundException($"Tài khoản {phonenum} đã bị xóa!");
+        }
+        #endregion
+        
     }
 }
